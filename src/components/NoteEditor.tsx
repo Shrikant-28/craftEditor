@@ -22,6 +22,7 @@ import {
   Quote,
   Table,
   Link as LinkIcon,
+  AlertCircle,
 } from 'lucide-react';
 import { Note, VoiceRecording } from '../types/note';
 import { VoiceRecorder } from './VoiceRecorder';
@@ -35,6 +36,7 @@ interface NoteEditorProps {
   categories: string[];
   onAddCategory?: (name: string) => string | void;
   openRecorderTrigger?: number;
+  onOpenMeetingPipeline?: () => void;
 }
 
 // Zero-allocation word counter to avoid allocating huge string arrays with split()
@@ -60,6 +62,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
   categories,
   onAddCategory,
   openRecorderTrigger,
+  onOpenMeetingPipeline,
 }) => {
   const [viewMode, setViewMode] = useState<'edit' | 'split' | 'preview'>('edit');
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -68,10 +71,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [showRecorder, setShowRecorder] = useState(false);
   const [isDictating, setIsDictating] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [dictationError, setDictationError] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dictationRef = useRef<any>(null);
+  const isDictatingRef = useRef(false);
   const exportTimerRef = useRef<number | null>(null);
+
+  const noteRef = useRef(note);
+  useEffect(() => {
+    noteRef.current = note;
+  }, [note]);
 
   useEffect(() => {
     if (openRecorderTrigger && openRecorderTrigger > 0) {
@@ -129,64 +140,154 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
     });
   }, [note, onUpdateNote]);
 
-  const toggleDictation = () => {
+  const appendDictatedText = useCallback((textToAppend: string) => {
+    if (!textToAppend.trim()) return;
+
+    const currentContent = noteRef.current.content || '';
+    const textarea = textareaRef.current;
+
+    let newContent = '';
+    let newCursorPos = 0;
+
+    if (textarea && document.activeElement === textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const before = currentContent.slice(0, start);
+      const after = currentContent.slice(end);
+
+      const spaceBefore = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : '';
+      const spaceAfter = after.length > 0 && !after.startsWith(' ') && !after.startsWith('\n') ? ' ' : '';
+      const inserted = `${spaceBefore}${textToAppend.trim()}${spaceAfter}`;
+
+      newContent = before + inserted + after;
+      newCursorPos = start + inserted.length;
+    } else {
+      const needsSpace = currentContent.length > 0 && !currentContent.endsWith(' ') && !currentContent.endsWith('\n');
+      const inserted = (needsSpace ? ' ' : '') + textToAppend.trim();
+      newContent = currentContent + inserted;
+      newCursorPos = newContent.length;
+    }
+
+    onUpdateNote({
+      ...noteRef.current,
+      content: newContent,
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (textarea && document.activeElement === textarea) {
+      setTimeout(() => {
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    }
+  }, [onUpdateNote]);
+
+  const stopDictation = useCallback(() => {
+    isDictatingRef.current = false;
+    if (dictationRef.current) {
+      try {
+        dictationRef.current.onresult = null;
+        dictationRef.current.onerror = null;
+        dictationRef.current.onend = null;
+        dictationRef.current.abort();
+      } catch {}
+      dictationRef.current = null;
+    }
+    setIsDictating(false);
+    setInterimTranscript('');
+  }, []);
+
+  const startDictation = useCallback(() => {
+    setDictationError(null);
+    setInterimTranscript('');
+
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRec) {
+      setDictationError('Voice typing (Web Speech API) is not supported in this browser. Opening Voice Memo recorder instead.');
       setShowRecorder(true);
       return;
     }
 
-    if (isDictating) {
-      if (dictationRef.current) {
-        try {
-          dictationRef.current.onresult = null;
-          dictationRef.current.onerror = null;
-          dictationRef.current.onend = null;
-          dictationRef.current.abort();
-        } catch {}
-        dictationRef.current = null;
-      }
+    try {
+      const recognition = new SpeechRec();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || 'en-US';
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (event: any) => {
+        let finalChunk = '';
+        let interimChunk = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const item = event.results[i];
+          if (item.isFinal) {
+            finalChunk += item[0].transcript + ' ';
+          } else {
+            interimChunk += item[0].transcript;
+          }
+        }
+
+        if (finalChunk.trim()) {
+          appendDictatedText(finalChunk);
+          setInterimTranscript('');
+        } else {
+          setInterimTranscript(interimChunk);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Dictation speech recognition notice:', event?.error);
+        if (event?.error === 'no-speech' || event?.error === 'aborted') {
+          return;
+        }
+
+        if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
+          setDictationError('Microphone permission was denied. Please allow microphone access in your system/browser settings.');
+          stopDictation();
+        } else if (event?.error === 'network') {
+          setDictationError('Speech recognition service is unreachable in this environment. Opening Voice Memo recorder.');
+          stopDictation();
+          setShowRecorder(true);
+        } else {
+          setDictationError(`Voice typing error: ${event?.error || 'Unknown error'}`);
+          stopDictation();
+        }
+      };
+
+      recognition.onend = () => {
+        if (isDictatingRef.current) {
+          try {
+            recognition.start();
+          } catch {
+            stopDictation();
+          }
+        } else {
+          setIsDictating(false);
+          setInterimTranscript('');
+        }
+      };
+
+      isDictatingRef.current = true;
+      dictationRef.current = recognition;
+      recognition.start();
+      setIsDictating(true);
+    } catch (err: any) {
+      console.error('Dictation initialization error:', err);
+      isDictatingRef.current = false;
       setIsDictating(false);
-    } else {
-      try {
-        const recognition = new SpeechRec();
-        recognition.continuous = true;
-        recognition.interimResults = false;
-        recognition.lang = navigator.language || 'en-US';
-
-        recognition.onresult = (event: any) => {
-          let newSpeech = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            if (event.results[i].isFinal) {
-              newSpeech += event.results[i][0].transcript + ' ';
-            }
-          }
-          if (newSpeech) {
-            onUpdateNote({
-              ...note,
-              content: note.content + (note.content.length > 0 && !note.content.endsWith(' ') && !note.content.endsWith('\n') ? ' ' : '') + newSpeech,
-              updatedAt: new Date().toISOString(),
-            });
-          }
-        };
-
-        recognition.onerror = () => {
-          setIsDictating(false);
-        };
-
-        recognition.onend = () => {
-          setIsDictating(false);
-        };
-
-        recognition.start();
-        dictationRef.current = recognition;
-        setIsDictating(true);
-      } catch (err) {
-        console.error('Dictation setup error:', err);
-        setIsDictating(false);
-      }
+      setDictationError('Failed to start voice dictation. Opening Voice Memo recorder instead.');
+      setShowRecorder(true);
     }
-  };
+  }, [appendDictatedText, stopDictation]);
+
+  const toggleDictation = useCallback(() => {
+    if (isDictating) {
+      stopDictation();
+    } else {
+      startDictation();
+    }
+  }, [isDictating, stopDictation, startDictation]);
+
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdateNote({
@@ -544,9 +645,41 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
             }}
             title={isDictating ? 'Stop speech dictation' : 'Voice typing / Dictate into note content'}
           >
-            <Sparkles size={14} style={{ color: isDictating ? 'var(--accent-rose)' : 'var(--accent-violet)' }} />
+            {isDictating ? (
+              <div
+                className="voice-recording-dot"
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--accent-rose)',
+                }}
+              />
+            ) : (
+              <Sparkles size={14} style={{ color: 'var(--accent-violet)' }} />
+            )}
             <span>{isDictating ? 'Listening...' : 'Dictate'}</span>
           </button>
+
+          {/* Meeting Notes Pipeline Button */}
+          {onOpenMeetingPipeline && (
+            <button
+              onClick={onOpenMeetingPipeline}
+              className="btn btn-ghost"
+              style={{
+                fontSize: '12px',
+                padding: '6px 10px',
+                color: 'var(--accent-cyan)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+                backgroundColor: 'rgba(6, 182, 212, 0.08)',
+                gap: '6px',
+              }}
+              title="Local Meeting Pipeline: Transcribe → Summarize → Extract Actions → Suggest Follow-up"
+            >
+              <ListTodo size={14} style={{ color: 'var(--accent-cyan)' }} />
+              <span>Meeting Pipeline</span>
+            </button>
+          )}
 
           {/* View Mode Segmented Buttons: Edit | Split | Preview */}
           <div
@@ -663,6 +796,110 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
           </button>
         </div>
       </div>
+
+      {/* Dictation Active Floating Live Bar */}
+      {isDictating && (
+        <div
+          style={{
+            margin: '0 24px 10px 24px',
+            padding: '10px 16px',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'rgba(244, 63, 94, 0.1)',
+            border: '1px solid rgba(244, 63, 94, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            boxShadow: '0 4px 16px rgba(244, 63, 94, 0.12)',
+          }}
+          className="animate-fade-in"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+            <div
+              className="voice-recording-dot"
+              style={{
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--accent-rose)',
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-rose)' }}>
+                  Voice Typing Active:
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                  (Speak clearly into microphone — inserting at cursor)
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: '13px',
+                  color: interimTranscript ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                  fontStyle: interimTranscript ? 'normal' : 'italic',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {interimTranscript ? `"${interimTranscript}..."` : 'Listening for speech...'}
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={stopDictation}
+            className="btn"
+            style={{
+              padding: '5px 12px',
+              fontSize: '12px',
+              backgroundColor: 'var(--accent-rose)',
+              color: '#ffffff',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              flexShrink: 0,
+              cursor: 'pointer',
+            }}
+          >
+            Done Typing
+          </button>
+        </div>
+      )}
+
+      {/* Dictation Notice / Error Banner */}
+      {dictationError && (
+        <div
+          style={{
+            margin: '0 24px 10px 24px',
+            padding: '10px 16px',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'rgba(245, 158, 11, 0.12)',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            fontSize: '12px',
+            color: 'var(--accent-amber)',
+          }}
+          className="animate-fade-in"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={15} style={{ flexShrink: 0 }} />
+            <span>{dictationError}</span>
+          </div>
+          <button
+            onClick={() => setDictationError(null)}
+            className="btn-icon"
+            style={{ width: '20px', height: '20px', color: 'var(--accent-amber)' }}
+            title="Dismiss"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
 
       {/* Title Input */}
       <div style={{ padding: '16px 24px 8px 24px' }}>

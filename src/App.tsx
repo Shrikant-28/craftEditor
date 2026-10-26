@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { SearchBar } from './components/SearchBar';
 import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
+import { MeetingPipelineModal } from './components/MeetingPipelineModal';
 import { Note, SearchFilter } from './types/note';
 import { INITIAL_NOTES } from './data/initialNotes';
 import { executeSearch } from './utils/searchEngine';
@@ -36,6 +37,39 @@ export const App: React.FC = () => {
   }, []);
 
   const [openRecorderTrigger, setOpenRecorderTrigger] = useState<number>(0);
+  const [isMeetingPipelineOpen, setIsMeetingPipelineOpen] = useState(false);
+
+  const handleInsertMeetingMarkdown = useCallback((markdown: string) => {
+    if (selectedNoteId) {
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === selectedNoteId
+            ? {
+                ...n,
+                content: n.content ? `${n.content.trim()}\n\n${markdown}` : markdown,
+                updatedAt: new Date().toISOString(),
+              }
+            : n
+        )
+      );
+    }
+  }, [selectedNoteId]);
+
+  const handleCreateMeetingNote = useCallback((title: string, markdown: string) => {
+    const newNote: Note = {
+      id: `meeting-${Date.now()}`,
+      title,
+      content: markdown,
+      category: 'Engineering',
+      tags: ['meeting', 'action-items', 'summary'],
+      isPinned: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      voiceRecordings: [],
+    };
+    setNotes((prev) => [newNote, ...prev]);
+    setSelectedNoteId(newNote.id);
+  }, []);
 
   // 1. Initial Load from Local SQLite Database (aura_notes.sqlite)
   useEffect(() => {
@@ -244,6 +278,7 @@ export const App: React.FC = () => {
           allTags={allTags}
           isDiskSynced={isDiskSynced}
           onAddCategory={handleAddCategory}
+          onOpenMeetingPipeline={() => setIsMeetingPipelineOpen(true)}
         />
 
         {/* Middle Column: Search + Note List Cards */}
@@ -285,6 +320,7 @@ export const App: React.FC = () => {
               categories={categories}
               onAddCategory={handleAddCategory}
               openRecorderTrigger={openRecorderTrigger}
+              onOpenMeetingPipeline={() => setIsMeetingPipelineOpen(true)}
             />
           ) : (
             <div
@@ -350,6 +386,14 @@ export const App: React.FC = () => {
         </div>
       </div>
 
+      {/* Meeting Notes Pipeline Modal */}
+      <MeetingPipelineModal
+        isOpen={isMeetingPipelineOpen}
+        onClose={() => setIsMeetingPipelineOpen(false)}
+        currentNote={currentSelectedNote}
+        onInsertMarkdown={handleInsertMeetingMarkdown}
+        onCreateNewMeetingNote={handleCreateMeetingNote}
+      />
     </div>
   );
 };

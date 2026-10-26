@@ -22,6 +22,7 @@ interface SidebarProps {
   allTags: { tag: string; count: number }[];
   isDiskSynced: boolean;
   onAddCategory?: (name: string) => void;
+  onOpenMeetingPipeline?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = React.memo(({
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
   allTags,
   isDiskSynced,
   onAddCategory,
+  onOpenMeetingPipeline,
 }) => {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');

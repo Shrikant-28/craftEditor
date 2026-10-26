@@ -6,6 +6,7 @@ export interface SystemInfo {
   nodeVersion: string;
   electronVersion: string;
   chromeVersion: string;
+  appVersion: string;
   appPath: string;
   userDataPath: string;
   databaseEngine?: string;
@@ -25,6 +26,7 @@ export interface ElectronAPI {
   closeWindow: () => Promise<void>;
   isMaximized: () => Promise<boolean>;
   getSystemInfo: () => Promise<SystemInfo>;
+  getAppVersion: () => Promise<string>;
   loadNotes: () => Promise<any[]>;
   saveNotes: (notes: any[]) => Promise<{ success: boolean; filePath?: string; count?: number; engine?: string; error?: string }>;
   getDatabaseStats: () => Promise<DatabaseStats | null>;
@@ -38,6 +40,7 @@ const electronAPI: ElectronAPI = {
   closeWindow: () => ipcRenderer.invoke('window:close'),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   getSystemInfo: () => ipcRenderer.invoke('app:get-system-info'),
+  getAppVersion: () => ipcRenderer.invoke('app:get-version'),
   loadNotes: () => ipcRenderer.invoke('storage:load-notes'),
   saveNotes: (notes) => ipcRenderer.invoke('storage:save-notes', notes),
   getDatabaseStats: () => ipcRenderer.invoke('storage:get-db-stats'),

@@ -29,12 +29,14 @@ let sqliteFilePath = '';
 function getSqlWasmPath(): string {
   const candidates = [
     path.join(__dirname, 'sql-wasm.wasm'),
+    path.join(process.resourcesPath || '', 'sql-wasm.wasm'),
+    path.join(process.resourcesPath || '', 'dist-electron', 'sql-wasm.wasm'),
     path.join(__dirname, '../node_modules/sql.js/dist/sql-wasm.wasm'),
     path.join(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm'),
     path.join(process.cwd(), 'dist-electron/sql-wasm.wasm'),
   ];
   for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
+    if (c && fs.existsSync(c)) return c;
   }
   return candidates[0];
 }

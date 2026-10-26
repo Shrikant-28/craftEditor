@@ -385,6 +385,9 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
           <Database size={13} style={{ color: 'var(--accent-cyan)' }} />
           <span>SQLite Database</span>
+          <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontFamily: 'monospace', opacity: 0.8 }}>
+            v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isDiskSynced ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
           <CheckCircle2 size={13} />

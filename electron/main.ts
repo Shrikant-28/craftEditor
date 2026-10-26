@@ -29,10 +29,10 @@ function createWindow() {
     minHeight: 640,
     frame: false, // Frameless window to use the custom Aura Notes TitleBar
     autoHideMenuBar: true,
-    backgroundColor: '#0b0f19',
-    icon: path.join(__dirname, '../public/note.jpg'),
-    show: false, // Don't show until ready-to-show to prevent white flash
-    title: 'Aura Notes Desktop',
+    icon: fs.existsSync(path.join(__dirname, '../public/note.jpg'))
+      ? path.join(__dirname, '../public/note.jpg')
+      : path.join(__dirname, '../dist/note.jpg'),
+    title: `Aura Notes Desktop v${app.getVersion()}`,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -135,10 +135,16 @@ function setupIpcHandlers() {
       nodeVersion: process.versions.node,
       electronVersion: process.versions.electron,
       chromeVersion: process.versions.chrome,
+      appVersion: app.getVersion(),
       appPath: app.getAppPath(),
       userDataPath: app.getPath('userData'),
       databaseEngine: 'SQLite 3 (ACID Relational Storage: aura_notes.sqlite)',
     };
+  });
+
+  // App version
+  ipcMain.handle('app:get-version', () => {
+    return app.getVersion();
   });
 
   // Open external web URLs in native browser safely

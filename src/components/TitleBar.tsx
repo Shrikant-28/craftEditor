@@ -44,11 +44,23 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       } catch {}
     }
   };
+  const [appVersion, setAppVersion] = useState<string>(() => {
+    try {
+      return typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
+    } catch {
+      return '1.0.0';
+    }
+  });
 
   useEffect(() => {
     if (window.electronAPI) {
       setIsElectron(true);
       window.electronAPI.isMaximized().then(setIsMaximized);
+      if (window.electronAPI.getAppVersion) {
+        window.electronAPI.getAppVersion().then((v) => {
+          if (v) setAppVersion(v);
+        }).catch(() => {});
+      }
     }
   }, []);
 
@@ -110,20 +122,21 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         <span style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em', color: 'var(--text-primary)' }}>
           Aura Notes
         </span>
-        {!isMobile && (
-          <span
-            style={{
-              fontSize: '11px',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              backgroundColor: isElectron ? 'rgba(6, 182, 212, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-              color: isElectron ? 'var(--accent-cyan)' : 'var(--accent-amber)',
-              fontWeight: 500,
-            }}
-          >
-            {isElectron ? 'Desktop (Electron)' : 'Web Preview'}
-          </span>
-        )}
+        <span
+          style={{
+            fontSize: '11px',
+            padding: '1px 6px',
+            borderRadius: '9999px',
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            color: 'var(--text-secondary)',
+            fontWeight: 500,
+            letterSpacing: '0.03em',
+            fontFamily: 'monospace',
+          }}
+          title={`Version ${appVersion}`}
+        >
+          v{appVersion}
+        </span>
       </div>
 
       {/* Right: Theme Switcher & Window Controls */}

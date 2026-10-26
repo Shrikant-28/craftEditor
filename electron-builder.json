@@ -1,0 +1,54 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.auranotes.desktop",
+  "productName": "Aura Notes",
+  "copyright": "Copyright © 2026 Aura Notes",
+  "directories": {
+    "output": "release",
+    "buildResources": "public"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "package.json",
+    "public/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "dist-electron/sql-wasm.wasm",
+      "to": "sql-wasm.wasm"
+    },
+    {
+      "from": "dist-electron/sql-wasm.wasm",
+      "to": "dist-electron/sql-wasm.wasm"
+    }
+  ],
+  "asar": true,
+  "disableAsarIntegrity": true,
+  "asarUnpack": [
+    "**/*.wasm"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "public/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Aura Notes",
+    "uninstallDisplayName": "Aura Notes"
+  },
+  "portable": {
+    "artifactName": "${productName}-Portable-${version}.${ext}"
+  },
+  "artifactName": "${productName}-Setup-${version}.${ext}"
+}

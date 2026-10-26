@@ -458,22 +458,25 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        minWidth: 0,
         backgroundColor: 'var(--bg-main)',
       }}
     >
       {/* Top Toolbar */}
       <div
         style={{
-          padding: '12px 20px',
+          padding: '10px 16px',
           borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '12px',
+          flexWrap: 'wrap',
+          gap: '8px 12px',
+          minWidth: 0,
         }}
       >
         {/* Left: Category & Tags Metadata */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
           {/* Category Dropdown & Quick Add */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Folder size={14} style={{ color: 'var(--accent-violet)' }} />
@@ -602,14 +605,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
         </div>
 
         {/* Right: Actions & View Mode Segmented Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', minWidth: 0, marginLeft: 'auto' }}>
           {/* Record Voice Note */}
           <button
             onClick={() => setShowRecorder(!showRecorder)}
             className="btn btn-ghost"
             style={{
               fontSize: '12px',
-              padding: '6px 10px',
+              padding: '5px 8px',
+              gap: '5px',
               color: showRecorder
                 ? 'var(--accent-rose)'
                 : hasVoiceRecordings
@@ -639,7 +643,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
             className="btn btn-ghost"
             style={{
               fontSize: '12px',
-              padding: '6px 10px',
+              padding: '5px 8px',
               color: isDictating ? 'var(--accent-rose)' : 'var(--text-secondary)',
               backgroundColor: isDictating ? 'rgba(244, 63, 94, 0.15)' : undefined,
             }}
@@ -668,7 +672,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
               className="btn btn-ghost"
               style={{
                 fontSize: '12px',
-                padding: '6px 10px',
+                padding: '5px 8px',
                 color: 'var(--accent-cyan)',
                 border: '1px solid rgba(6, 182, 212, 0.3)',
                 backgroundColor: 'rgba(6, 182, 212, 0.08)',
@@ -765,7 +769,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
             className="btn btn-ghost"
             style={{
               fontSize: '12px',
-              padding: '6px 10px',
+              padding: '5px 8px',
+              gap: '4px',
               color: note.isPinned ? 'var(--accent-amber)' : 'var(--text-secondary)',
             }}
             title={note.isPinned ? 'Unpin Note' : 'Pin Note'}
@@ -778,7 +783,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
           <button
             onClick={handleExport}
             className="btn btn-ghost"
-            style={{ fontSize: '12px', padding: '6px 10px' }}
+            style={{ fontSize: '12px', padding: '5px 8px', gap: '4px' }}
             title="Export note to Markdown (.md) file on disk"
           >
             <Download size={14} />
@@ -789,7 +794,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
           <button
             onClick={() => onDeleteNote(note.id)}
             className="btn btn-ghost"
-            style={{ fontSize: '12px', padding: '6px 10px', color: 'var(--accent-rose)' }}
+            style={{ fontSize: '12px', padding: '5px 8px', color: 'var(--accent-rose)' }}
             title="Delete this note"
           >
             <Trash2 size={14} />

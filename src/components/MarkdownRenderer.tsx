@@ -242,7 +242,7 @@ export function renderInlineMarkdown(text: string): React.ReactNode {
     // Bold Italic: ***text***
     if (part.startsWith('***') && part.endsWith('***') && part.length >= 6) {
       return (
-        <strong key={index} style={{ fontWeight: 700, fontStyle: 'italic', color: '#fff' }}>
+        <strong key={index} style={{ fontWeight: 700, fontStyle: 'italic', color: 'var(--text-primary)' }}>
           {part.slice(3, -3)}
         </strong>
       );
@@ -251,7 +251,7 @@ export function renderInlineMarkdown(text: string): React.ReactNode {
     // Bold: **text**
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
-        <strong key={index} style={{ fontWeight: 700, color: '#f3f4f6' }}>
+        <strong key={index} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
           {part.slice(2, -2)}
         </strong>
       );
@@ -260,7 +260,7 @@ export function renderInlineMarkdown(text: string): React.ReactNode {
     // Italic: *text*
     if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
       return (
-        <em key={index} style={{ fontStyle: 'italic', color: '#e5e7eb' }}>
+        <em key={index} style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>
           {part.slice(1, -1)}
         </em>
       );
@@ -546,7 +546,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
                   fontSize: '15px',
                   fontWeight: 600,
                   margin: '12px 0 4px 0',
-                  color: '#e5e7eb',
+                  color: 'var(--text-primary)',
                 }}
               >
                 {renderInlineMarkdown(text)}
@@ -660,7 +660,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
                         style={{
                           padding: '10px 14px',
                           fontWeight: 600,
-                          color: '#fff',
+                          color: 'var(--text-primary)',
                         }}
                       >
                         {renderInlineMarkdown(header)}

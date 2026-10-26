@@ -311,7 +311,7 @@ export const App: React.FC = () => {
         </div>
 
         {/* Right Column: Note Editor / Preview */}
-        <div style={{ flex: 1, display: 'flex', height: '100%', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', height: '100%', overflow: 'hidden', minWidth: 0 }}>
           {currentSelectedNote ? (
             <NoteEditor
               note={currentSelectedNote}

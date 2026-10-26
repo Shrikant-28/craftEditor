@@ -39,8 +39,8 @@ export function parseSearchQuery(rawQuery: string): {
   let onlyPinned = false;
   let onlyVoice = false;
 
-  for (const token of tokens) {
-    const lower = token.toLowerCase();
+  for (let i = 0; i < tokens.length; i++) {
+    const lower = tokens[i].toLowerCase();
     if (lower.startsWith('tag:') || lower.startsWith('#')) {
       const tag = lower.replace(/^tag:|^#/, '').trim();
       if (tag) tags.push(tag);
@@ -60,15 +60,26 @@ export function parseSearchQuery(rawQuery: string): {
 }
 
 /**
- * Highlights matches in text using HTML <mark> tags
+ * Highlights matches in text using HTML <mark> tags with a precompiled regex to avoid re-compilation
  */
-export function highlightText(text: string, searchTokens: string[]): string {
-  if (!text || searchTokens.length === 0) return text || '';
-  const validTokens = searchTokens.filter((t) => t.length > 0);
-  if (validTokens.length === 0) return text;
+export function highlightText(text: string, searchTokensOrPattern: string[] | RegExp | null): string {
+  if (!text) return '';
+  if (!searchTokensOrPattern) return text;
+
+  let pattern: RegExp;
+  if (searchTokensOrPattern instanceof RegExp) {
+    pattern = searchTokensOrPattern;
+  } else {
+    const validTokens = searchTokensOrPattern.filter((t) => t.length > 0);
+    if (validTokens.length === 0) return text;
+    try {
+      pattern = new RegExp(`(${validTokens.map(escapeRegExp).join('|')})`, 'gi');
+    } catch {
+      return text;
+    }
+  }
 
   try {
-    const pattern = new RegExp(`(${validTokens.map(escapeRegExp).join('|')})`, 'gi');
     return text.replace(pattern, '<mark class="search-highlight">$1</mark>');
   } catch {
     return text;
@@ -87,8 +98,8 @@ export function extractSnippet(content: string, searchTokens: string[], maxLengt
   const lowerContent = content.toLowerCase();
   let firstIndex = -1;
 
-  for (const token of searchTokens) {
-    const idx = lowerContent.indexOf(token.toLowerCase());
+  for (let i = 0; i < searchTokens.length; i++) {
+    const idx = lowerContent.indexOf(searchTokens[i].toLowerCase());
     if (idx !== -1 && (firstIndex === -1 || idx < firstIndex)) {
       firstIndex = idx;
     }
@@ -110,6 +121,7 @@ export function extractSnippet(content: string, searchTokens: string[], maxLengt
 
 /**
  * Executes multi-dimensional scored search across notes collection
+ * Optimized for minimal heap allocations and zero-garbage sorting.
  */
 export function executeSearch(notes: Note[], filter: SearchFilter): { matches: SearchMatch[]; durationMs: number } {
   const startTime = performance.now();
@@ -138,11 +150,11 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
     parsed.onlyVoice;
 
   if (!hasActiveQuery) {
-    // Return all notes sorted by pinned then updatedAt
+    // Return all notes sorted by pinned then updatedAt (using zero-allocation Date.parse)
     const defaultMatches: SearchMatch[] = [...notes]
       .sort((a, b) => {
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
       })
       .map((note) => ({
         note,
@@ -156,9 +168,21 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
     return { matches: defaultMatches, durationMs: performance.now() - startTime };
   }
 
-  const results: SearchMatch[] = [];
+  // Precompile pattern once for all notes rather than compiling inside loop
+  const validTokens = allTokens.filter((t) => t.length > 0);
+  let highlightPattern: RegExp | null = null;
+  if (validTokens.length > 0) {
+    try {
+      highlightPattern = new RegExp(`(${validTokens.map(escapeRegExp).join('|')})`, 'gi');
+    } catch {}
+  }
 
-  for (const note of notes) {
+  const results: SearchMatch[] = [];
+  const nowMs = Date.now();
+
+  for (let nIdx = 0; nIdx < notes.length; nIdx++) {
+    const note = notes[nIdx];
+
     // 1. Tag filters check
     if (parsed.tags.length > 0) {
       const noteTagsLower = note.tags.map((t) => t.toLowerCase());
@@ -195,7 +219,8 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
     let matchesAnyText = allTokens.length === 0;
 
     // Check exact phrases
-    for (const phrase of parsed.exactPhrases) {
+    for (let pIdx = 0; pIdx < parsed.exactPhrases.length; pIdx++) {
+      const phrase = parsed.exactPhrases[pIdx];
       if (titleLower.includes(phrase)) {
         score += 80;
         matchesAnyText = true;
@@ -207,7 +232,8 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
     }
 
     // Check individual search terms
-    for (const term of parsed.terms) {
+    for (let tIdx = 0; tIdx < parsed.terms.length; tIdx++) {
+      const term = parsed.terms[tIdx];
       let termMatched = false;
 
       // Exact title match or startsWith bonus
@@ -223,19 +249,25 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
       }
 
       // Tag match
-      note.tags.forEach((tag, idx) => {
-        if (noteTagsLower[idx].includes(term)) {
+      for (let tagIdx = 0; tagIdx < note.tags.length; tagIdx++) {
+        if (noteTagsLower[tagIdx].includes(term)) {
           score += 35;
-          matchedTags.push(tag);
+          matchedTags.push(note.tags[tagIdx]);
           termMatched = true;
         }
-      });
+      }
 
-      // Content match
+      // Content match: zero-allocation occurrence count instead of regex array creation
       if (contentLower.includes(term)) {
         score += 15;
-        // Count occurrences up to a cap
-        const occurrences = (contentLower.match(new RegExp(escapeRegExp(term), 'g')) || []).length;
+        let occurrences = 0;
+        let pos = 0;
+        const termLen = term.length;
+        while ((pos = contentLower.indexOf(term, pos)) !== -1) {
+          occurrences++;
+          pos += termLen;
+          if (occurrences >= 10) break; // early cap
+        }
         score += Math.min(occurrences * 3, 25);
         termMatched = true;
       }
@@ -247,11 +279,14 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
 
     // Check Voice Recordings transcripts
     if (hasVoiceRecordings && allTokens.length > 0) {
-      for (const rec of note.voiceRecordings!) {
+      const recs = note.voiceRecordings!;
+      for (let rIdx = 0; rIdx < recs.length; rIdx++) {
+        const rec = recs[rIdx];
         if (!rec.transcript) continue;
         const transcriptLower = rec.transcript.toLowerCase();
 
-        for (const phrase of parsed.exactPhrases) {
+        for (let pIdx = 0; pIdx < parsed.exactPhrases.length; pIdx++) {
+          const phrase = parsed.exactPhrases[pIdx];
           if (transcriptLower.includes(phrase)) {
             score += 50;
             matchesAnyText = true;
@@ -262,7 +297,8 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
           }
         }
 
-        for (const term of parsed.terms) {
+        for (let tIdx = 0; tIdx < parsed.terms.length; tIdx++) {
+          const term = parsed.terms[tIdx];
           if (transcriptLower.includes(term)) {
             score += 30;
             matchesAnyText = true;
@@ -289,8 +325,8 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
       score += 15;
     }
 
-    // Recency boost (notes updated in the last 7 days get minor bonus)
-    const ageDays = (Date.now() - new Date(note.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+    // Recency boost (notes updated in the last 7 days get minor bonus - zero-allocation Date.parse)
+    const ageDays = (nowMs - Date.parse(note.updatedAt)) / 86400000;
     if (ageDays < 7) {
       score += Math.max(0, 5 - ageDays);
     }
@@ -300,17 +336,17 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
     results.push({
       note,
       score,
-      highlightedTitle: highlightText(note.title, allTokens),
-      highlightedSnippet: highlightText(snippetText, allTokens),
-      matchedTags: [...new Set(matchedTags)],
+      highlightedTitle: highlightText(note.title, highlightPattern),
+      highlightedSnippet: highlightText(snippetText, highlightPattern),
+      matchedTags: matchedTags.length > 1 ? Array.from(new Set(matchedTags)) : matchedTags,
       matchedVoice,
     });
   }
 
-  // Sort by score descending, then by updatedAt descending
+  // Sort by score descending, then by updatedAt descending (zero Date allocations)
   results.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
-    return new Date(b.note.updatedAt).getTime() - new Date(a.note.updatedAt).getTime();
+    return Date.parse(b.note.updatedAt) - Date.parse(a.note.updatedAt);
   });
 
   const durationMs = Math.round((performance.now() - startTime) * 100) / 100;

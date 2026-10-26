@@ -22,7 +22,7 @@ export function generateWaveform(sampleCount = 36, seed = 'voice-note'): number[
     hash |= 0;
   }
 
-  const bars: number[] = [];
+  const bars: number[] = new Array(sampleCount);
   for (let i = 0; i < sampleCount; i++) {
     // Combine multiple sine waves and pseudo-random hash variations for natural speech cadences
     const t = i / sampleCount;
@@ -31,7 +31,7 @@ export function generateWaveform(sampleCount = 36, seed = 'voice-note'): number[
     const pseudoRand = Math.abs(Math.sin(hash + i * 19.3));
     const combined = Math.abs(wave1 * 0.4 + wave2 * 0.3 + pseudoRand * 0.3);
     const normalized = Math.max(0.15, Math.min(0.95, combined));
-    bars.push(Math.round(normalized * 100) / 100);
+    bars[i] = Math.round(normalized * 100) / 100;
   }
   return bars;
 }
@@ -39,6 +39,7 @@ export function generateWaveform(sampleCount = 36, seed = 'voice-note'): number[
 /**
  * Generates a valid standard 16-bit PCM WAV audio clip encoded in Base64 Data URL.
  * Produces a warm, pleasant dual-tone chime.
+ * Optimized with chunked conversion to prevent heap string thrashing.
  */
 export function createSampleAudioBase64(durationSeconds = 2.5, sampleRate = 8000): string {
   const numSamples = Math.floor(durationSeconds * sampleRate);
@@ -80,11 +81,13 @@ export function createSampleAudioBase64(durationSeconds = 2.5, sampleRate = 8000
     view.setInt16(44 + i * 2, intSample, true);
   }
 
-  // Convert binary to base64 safely
+  // Convert binary to base64 using 8KB chunking to prevent intermediate string allocations
   let binary = '';
   const len = buffer.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(buffer[i]);
+  const CHUNK_SIZE = 8192;
+  for (let i = 0; i < len; i += CHUNK_SIZE) {
+    const chunk = buffer.subarray(i, Math.min(i + CHUNK_SIZE, len));
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
   }
   const base64 = btoa(binary);
   return `data:audio/wav;base64,${base64}`;

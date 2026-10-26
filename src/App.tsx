@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
 import { SearchBar } from './components/SearchBar';
@@ -33,14 +33,38 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // 2. Persist to Electron Disk Storage whenever notes change
+  // 2. Debounced persistence to Electron Disk Storage to avoid IPC memory thrashing on every keystroke
+  const isInitialMount = useRef(true);
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+
   useEffect(() => {
-    if (window.electronAPI) {
-      window.electronAPI.saveNotes(notes).then((res) => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (!window.electronAPI) return;
+
+    setIsDiskSynced(false);
+    const timer = setTimeout(() => {
+      window.electronAPI?.saveNotes(notes).then((res) => {
         setIsDiskSynced(res.success);
       });
-    }
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, [notes]);
+
+  // Flush persistence synchronously before window closes or refreshes
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (window.electronAPI) {
+        window.electronAPI.saveNotes(notesRef.current);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   const [customCategories, setCustomCategories] = useState<string[]>([
     'Engineering',
@@ -49,38 +73,42 @@ export const App: React.FC = () => {
     'Design',
   ]);
 
-  // Derive unique categories and tags with counts
-  const categories = useMemo(() => {
-    const set = new Set<string>(customCategories);
-    notes.forEach((n) => {
-      if (n.category) set.add(n.category);
+  // Combined single-pass calculation for categories and tags to eliminate redundant iterations and arrays
+  const { categories, allTags } = useMemo(() => {
+    const categorySet = new Set<string>(customCategories);
+    const tagCountMap = new Map<string, number>();
+
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i];
+      if (n.category) categorySet.add(n.category);
+      const tags = n.tags;
+      for (let j = 0; j < tags.length; j++) {
+        const t = tags[j];
+        tagCountMap.set(t, (tagCountMap.get(t) || 0) + 1);
+      }
+    }
+
+    const sortedCategories = Array.from(categorySet).sort();
+    const sortedTags: { tag: string; count: number }[] = [];
+    tagCountMap.forEach((count, tag) => {
+      sortedTags.push({ tag, count });
     });
-    return Array.from(set).sort();
+    sortedTags.sort((a, b) => b.count - a.count);
+
+    return { categories: sortedCategories, allTags: sortedTags };
   }, [notes, customCategories]);
 
-  const allTags = useMemo(() => {
-    const map = new Map<string, number>();
-    notes.forEach((n) => {
-      n.tags.forEach((t) => {
-        map.set(t, (map.get(t) || 0) + 1);
-      });
-    });
-    return Array.from(map.entries())
-      .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [notes]);
-
-  // Execute high-speed search & scoring
+  // Execute high-speed scored search
   const { matches, durationMs } = useMemo(() => {
     return executeSearch(notes, filter);
   }, [notes, filter]);
 
-  // Handlers
-  const handleFilterChange = (update: Partial<SearchFilter>) => {
+  // Memoized handlers to stabilize props for child components
+  const handleFilterChange = useCallback((update: Partial<SearchFilter>) => {
     setFilter((prev) => ({ ...prev, ...update }));
-  };
+  }, []);
 
-  const handleCreateNote = () => {
+  const handleCreateNote = useCallback(() => {
     const newNote: Note = {
       id: `note-${Date.now()}`,
       title: 'New Note',
@@ -93,9 +121,9 @@ export const App: React.FC = () => {
     };
     setNotes((prev) => [newNote, ...prev]);
     setSelectedNoteId(newNote.id);
-  };
+  }, [categories]);
 
-  const handleCreateVoiceNote = () => {
+  const handleCreateVoiceNote = useCallback(() => {
     const formattedDate = new Date().toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
@@ -116,13 +144,13 @@ export const App: React.FC = () => {
     setNotes((prev) => [newNote, ...prev]);
     setSelectedNoteId(newNote.id);
     setOpenRecorderTrigger(Date.now());
-  };
+  }, []);
 
-  const handleUpdateNote = (updated: Note) => {
+  const handleUpdateNote = useCallback((updated: Note) => {
     setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
-  };
+  }, []);
 
-  const handleDeleteNote = (noteId: string) => {
+  const handleDeleteNote = useCallback((noteId: string) => {
     setNotes((prev) => {
       const next = prev.filter((n) => n.id !== noteId);
       if (selectedNoteId === noteId) {
@@ -130,28 +158,30 @@ export const App: React.FC = () => {
       }
       return next;
     });
-  };
+  }, [selectedNoteId]);
 
-  const handleTogglePin = (noteId: string, e: React.MouseEvent) => {
+  const handleTogglePin = useCallback((noteId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setNotes((prev) =>
       prev.map((n) => (n.id === noteId ? { ...n, isPinned: !n.isPinned, updatedAt: new Date().toISOString() } : n))
     );
-  };
+  }, []);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     setFilter({ query: '', tag: undefined, category: undefined, onlyPinned: false, onlyVoice: false });
-  };
+  }, []);
 
-  const handleAddCategory = (newCat: string) => {
+  const handleAddCategory = useCallback((newCat: string) => {
     const trimmed = newCat.trim();
     if (!trimmed) return '';
     const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
     setCustomCategories((prev) => (prev.includes(formatted) ? prev : [...prev, formatted]));
     return formatted;
-  };
+  }, []);
 
-  const currentSelectedNote = notes.find((n) => n.id === selectedNoteId);
+  const currentSelectedNote = useMemo(() => {
+    return notes.find((n) => n.id === selectedNoteId) || null;
+  }, [notes, selectedNoteId]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>

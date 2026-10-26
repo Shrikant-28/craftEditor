@@ -2,6 +2,10 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs';
 
+// Optimize V8 memory ceiling and Chromium background footprint
+app.commandLine.appendSwitch('disable-site-isolation-trials');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256');
+
 let mainWindow: BrowserWindow | null = null;
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -42,10 +46,15 @@ function createWindow() {
     mainWindow?.show();
   });
 
+  // Memory management: purge Chromium cache when window is minimized
+  mainWindow.on('minimize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.session.clearCache().catch(() => {});
+    }
+  });
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    // Open devtools in detached window if needed:
-    // mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -110,12 +119,12 @@ function setupIpcHandlers() {
     };
   });
 
-  // Local file storage for notes
+  // Local file storage for notes - Asynchronous non-blocking I/O
   ipcMain.handle('storage:load-notes', async () => {
     try {
       const filePath = getNotesFilePath();
       if (fs.existsSync(filePath)) {
-        const raw = fs.readFileSync(filePath, 'utf-8');
+        const raw = await fs.promises.readFile(filePath, 'utf-8');
         return JSON.parse(raw);
       }
     } catch (err) {
@@ -127,7 +136,8 @@ function setupIpcHandlers() {
   ipcMain.handle('storage:save-notes', async (_, notes) => {
     try {
       const filePath = getNotesFilePath();
-      fs.writeFileSync(filePath, JSON.stringify(notes, null, 2), 'utf-8');
+      // Use compact JSON serialization without indent to avoid 2x string memory bloat
+      await fs.promises.writeFile(filePath, JSON.stringify(notes), 'utf-8');
       return { success: true, filePath };
     } catch (err) {
       console.error('Failed to save notes to disk:', err);
@@ -135,7 +145,7 @@ function setupIpcHandlers() {
     }
   });
 
-  // Export note to file dialog
+  // Export note to file dialog - Asynchronous
   ipcMain.handle('dialog:export-note', async (_, { title, content }) => {
     if (!mainWindow) return { canceled: true };
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
@@ -151,7 +161,7 @@ function setupIpcHandlers() {
     if (canceled || !filePath) return { canceled: true };
 
     try {
-      fs.writeFileSync(filePath, content, 'utf-8');
+      await fs.promises.writeFile(filePath, content, 'utf-8');
       return { canceled: false, filePath };
     } catch (err) {
       return { canceled: false, error: String(err) };

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Play,
   Pause,
@@ -7,8 +7,6 @@ import {
   FileText,
   Copy,
   Check,
-  RotateCcw,
-  Volume2,
   Sparkles,
 } from 'lucide-react';
 import { VoiceRecording } from '../types/note';
@@ -20,7 +18,7 @@ interface VoicePlayerProps {
   onInsertTranscript?: (transcript: string) => void;
 }
 
-export const VoicePlayer: React.FC<VoicePlayerProps> = ({
+export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
   recording,
   onDelete,
   onInsertTranscript,
@@ -34,12 +32,16 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
   const [hoverBarIndex, setHoverBarIndex] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const copyTimeoutRef = useRef<number | null>(null);
 
-  const waveform = recording.waveform && recording.waveform.length > 0
-    ? recording.waveform
-    : generateWaveform(36, recording.id);
+  // Memoize waveform so it doesn't recalculate on every timeupdate tick
+  const waveform = useMemo(() => {
+    return recording.waveform && recording.waveform.length > 0
+      ? recording.waveform
+      : generateWaveform(36, recording.id);
+  }, [recording.waveform, recording.id]);
 
-  // Sync audio element events
+  // Sync audio element events and cleanup native audio decoders on unmount
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -74,6 +76,22 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
+
+      // Explicitly tear down audio pipeline to prevent Chromium media decoder memory leaks
+      try {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      } catch {}
+    };
+  }, []);
+
+  // Clean up any pending clipboard timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -116,7 +134,8 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
     if (!recording.transcript) return;
     navigator.clipboard.writeText(recording.transcript);
     setCopiedTranscript(true);
-    setTimeout(() => setCopiedTranscript(false), 2000);
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = window.setTimeout(() => setCopiedTranscript(false), 2000);
   };
 
   const handleDownload = () => {
@@ -127,12 +146,14 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
   const progressFraction = duration > 0 ? Math.min(1, currentTime / duration) : 0;
   const activeBarCount = Math.floor(progressFraction * waveform.length);
 
-  const formattedDate = new Date(recording.recordedAt).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const formattedDate = useMemo(() => {
+    return new Date(recording.recordedAt).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, [recording.recordedAt]);
 
   return (
     <div
@@ -372,4 +393,4 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = ({
       )}
     </div>
   );
-};
+});

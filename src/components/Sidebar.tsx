@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   FileText,
   Pin,
@@ -26,7 +26,7 @@ interface SidebarProps {
   onAddCategory?: (name: string) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+export const Sidebar: React.FC<SidebarProps> = React.memo(({
   notes,
   filter,
   onFilterChange,
@@ -66,8 +66,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const pinnedCount = notes.filter((n) => n.isPinned).length;
-  const voiceCount = notes.filter((n) => Array.isArray(n.voiceRecordings) && n.voiceRecordings.length > 0).length;
+  // Single-pass memoized count calculation to eliminate repeated .filter() array allocations
+  const { pinnedCount, voiceCount, categoryCounts } = useMemo(() => {
+    let pinned = 0;
+    let voice = 0;
+    const catCounts = new Map<string, number>();
+
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i];
+      if (n.isPinned) pinned++;
+      if (n.voiceRecordings && n.voiceRecordings.length > 0) voice++;
+      if (n.category) {
+        const lowerCat = n.category.toLowerCase();
+        catCounts.set(lowerCat, (catCounts.get(lowerCat) || 0) + 1);
+      }
+    }
+
+    return { pinnedCount: pinned, voiceCount: voice, categoryCounts: catCounts };
+  }, [notes]);
 
   return (
     <aside
@@ -153,11 +169,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <FileText size={15} />
               <span>All Notes</span>
             </div>
-            <span style={{ fontSize: '12px', opacity: 0.7 }}>{notes.length}</span>
+            <span style={{ fontSize: '11px', opacity: 0.7 }}>{notes.length}</span>
           </div>
 
           <div
-            onClick={() => onFilterChange({ onlyPinned: !filter.onlyPinned, onlyVoice: false })}
+            onClick={() => onFilterChange({ onlyPinned: !filter.onlyPinned })}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -165,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               padding: '8px 10px',
               borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
-              backgroundColor: filter.onlyPinned ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+              backgroundColor: filter.onlyPinned ? 'rgba(245, 158, 11, 0.12)' : 'transparent',
               color: filter.onlyPinned ? 'var(--accent-amber)' : 'var(--text-secondary)',
               transition: 'background 0.15s ease',
               marginBottom: '2px',
@@ -175,11 +191,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Pin size={15} />
               <span>Pinned Notes</span>
             </div>
-            <span style={{ fontSize: '12px', opacity: 0.7 }}>{pinnedCount}</span>
+            <span style={{ fontSize: '11px', opacity: 0.7 }}>{pinnedCount}</span>
           </div>
 
           <div
-            onClick={() => onFilterChange({ onlyVoice: !filter.onlyVoice, onlyPinned: false })}
+            onClick={() => onFilterChange({ onlyVoice: !filter.onlyVoice })}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -187,8 +203,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               padding: '8px 10px',
               borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
-              backgroundColor: filter.onlyVoice ? 'rgba(139, 92, 246, 0.18)' : 'transparent',
-              color: filter.onlyVoice ? 'var(--accent-violet)' : 'var(--text-secondary)',
+              backgroundColor: filter.onlyVoice ? 'rgba(6, 182, 212, 0.14)' : 'transparent',
+              color: filter.onlyVoice ? 'var(--accent-cyan)' : 'var(--text-secondary)',
               transition: 'background 0.15s ease',
             }}
           >
@@ -196,7 +212,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Mic size={15} />
               <span>Voice Notes</span>
             </div>
-            <span style={{ fontSize: '12px', opacity: 0.7 }}>{voiceCount}</span>
+            <span style={{ fontSize: '11px', opacity: 0.7 }}>{voiceCount}</span>
           </div>
         </div>
 
@@ -222,23 +238,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Categories
             </span>
             <button
-              onClick={() => setIsAddingCategory((prev) => !prev)}
+              onClick={() => setIsAddingCategory(true)}
               className="btn-icon"
-              style={{ width: '20px', height: '20px', borderRadius: '4px' }}
-              title="Add new category"
+              style={{ width: '20px', height: '20px' }}
+              title="Add Category"
             >
-              <Plus size={13} />
+              <Plus size={12} />
             </button>
           </div>
 
-          {/* Quick inline category input */}
           {isAddingCategory && (
             <div
               style={{
-                padding: '4px 6px 10px 6px',
                 display: 'flex',
-                gap: '4px',
                 alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                marginBottom: '4px',
               }}
             >
               <input
@@ -282,7 +298,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {categories.map((cat) => {
-            const count = notes.filter((n) => n.category.toLowerCase() === cat.toLowerCase()).length;
+            const count = categoryCounts.get(cat.toLowerCase()) || 0;
             const isSelected = filter.category?.toLowerCase() === cat.toLowerCase();
 
             return (
@@ -362,11 +378,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <HardDrive size={13} />
           <span>Local Disk Storage</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-emerald)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isDiskSynced ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
           <CheckCircle2 size={13} />
-          <span style={{ fontSize: '11px' }}>Synced</span>
+          <span style={{ fontSize: '11px' }}>{isDiskSynced ? 'Synced' : 'Saving...'}</span>
         </div>
       </div>
     </aside>
   );
-};
+});

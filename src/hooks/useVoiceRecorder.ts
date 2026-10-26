@@ -17,12 +17,14 @@ export interface UseVoiceRecorderResult {
   isSpeechRecognitionSupported: boolean;
 }
 
+const DEFAULT_BARS = new Array(24).fill(0.1);
+
 export function useVoiceRecorder(): UseVoiceRecorderResult {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const [liveTranscript, setLiveTranscript] = useState('');
-  const [visualizerBars, setVisualizerBars] = useState<number[]>(new Array(24).fill(0.1));
+  const [visualizerBars, setVisualizerBars] = useState<number[]>(DEFAULT_BARS);
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -39,7 +41,7 @@ export function useVoiceRecorder(): UseVoiceRecorderResult {
   const isSpeechRecognitionSupported = typeof window !== 'undefined' &&
     !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
-  // Clean up all resources
+  // Clean up all resources thoroughly
   const cleanup = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -51,6 +53,10 @@ export function useVoiceRecorder(): UseVoiceRecorderResult {
     }
     if (recognitionRef.current) {
       try {
+        // Detach event listeners to prevent memory leaks and zombie restart callbacks
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
         recognitionRef.current.abort();
       } catch {}
       recognitionRef.current = null;
@@ -73,7 +79,7 @@ export function useVoiceRecorder(): UseVoiceRecorderResult {
     setIsPaused(false);
     setDuration(0);
     setLiveTranscript('');
-    setVisualizerBars(new Array(24).fill(0.1));
+    setVisualizerBars(DEFAULT_BARS);
   }, []);
 
   useEffect(() => {
@@ -146,28 +152,34 @@ export function useVoiceRecorder(): UseVoiceRecorderResult {
 
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
           let lastSampleTime = 0;
+          let lastUiUpdateTime = 0;
+          const UI_THROTTLE_MS = 50; // Throttle visualizer state updates to ~20 FPS to prevent React render thrashing
 
           const updateVisualizer = (currentTime: number) => {
             if (!analyserRef.current) return;
-            analyserRef.current.getByteFrequencyData(dataArray);
 
-            // Map frequency bins to 24 bars
-            const bars: number[] = [];
-            const step = Math.max(1, Math.floor(dataArray.length / 24));
-            let maxAmp = 0;
+            // Only push state updates at ~20 FPS rather than 60 FPS to save heap allocation and CPU
+            if (currentTime - lastUiUpdateTime >= UI_THROTTLE_MS) {
+              lastUiUpdateTime = currentTime;
+              analyserRef.current.getByteFrequencyData(dataArray);
 
-            for (let i = 0; i < 24; i++) {
-              const val = dataArray[i * step] || 0;
-              const norm = Math.max(0.1, val / 255);
-              bars.push(norm);
-              if (norm > maxAmp) maxAmp = norm;
-            }
-            setVisualizerBars(bars);
+              const bars: number[] = new Array(24);
+              const step = Math.max(1, Math.floor(dataArray.length / 24));
+              let maxAmp = 0;
 
-            // Record peak for persistent waveform (sample every 150ms)
-            if (currentTime - lastSampleTime > 150) {
-              lastSampleTime = currentTime;
-              recordedPeaksRef.current.push(Math.round(maxAmp * 100) / 100);
+              for (let i = 0; i < 24; i++) {
+                const val = dataArray[i * step] || 0;
+                const norm = Math.max(0.1, val / 255);
+                bars[i] = norm;
+                if (norm > maxAmp) maxAmp = norm;
+              }
+              setVisualizerBars(bars);
+
+              // Record peak for persistent waveform (sample every 150ms)
+              if (currentTime - lastSampleTime > 150) {
+                lastSampleTime = currentTime;
+                recordedPeaksRef.current.push(Math.round(maxAmp * 100) / 100);
+              }
             }
 
             animationFrameRef.current = requestAnimationFrame(updateVisualizer);
@@ -202,7 +214,7 @@ export function useVoiceRecorder(): UseVoiceRecorderResult {
           };
 
           recognition.onend = () => {
-            // Keep recognizing if still recording
+            // Keep recognizing only if still actively recording
             if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
               try {
                 recognition.start();
@@ -284,6 +296,12 @@ export function useVoiceRecorder(): UseVoiceRecorderResult {
         cleanup();
         resolve(null);
         return;
+      }
+
+      // Cancel animation frame immediately when stopping
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
 
       const recordedDuration = Math.max(1, duration);

@@ -1,19 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   Pin,
   Trash2,
   Download,
   Eye,
   Edit3,
-  Calendar,
   Check,
   Tag,
   Folder,
-  FileCode,
   Plus,
   X,
   Mic,
-  MicOff,
   Sparkles,
 } from 'lucide-react';
 import { Note, VoiceRecording } from '../types/note';
@@ -29,7 +26,23 @@ interface NoteEditorProps {
   openRecorderTrigger?: number;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({
+// Zero-allocation word counter to avoid allocating huge string arrays with split()
+function countWords(str: string): number {
+  let count = 0;
+  let inWord = false;
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code <= 32) {
+      inWord = false;
+    } else if (!inWord) {
+      inWord = true;
+      count++;
+    }
+  }
+  return count;
+}
+
+export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
   note,
   onUpdateNote,
   onDeleteNote,
@@ -44,7 +57,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [showRecorder, setShowRecorder] = useState(false);
   const [isDictating, setIsDictating] = useState(false);
+
   const dictationRef = useRef<any>(null);
+  const exportTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (openRecorderTrigger && openRecorderTrigger > 0) {
@@ -52,11 +67,29 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     }
   }, [openRecorderTrigger]);
 
-  const wordCount = note.content.trim() ? note.content.trim().split(/\s+/).length : 0;
+  // Clean up any ongoing SpeechRecognition dictation and timer on unmount
+  useEffect(() => {
+    return () => {
+      if (dictationRef.current) {
+        try {
+          dictationRef.current.onresult = null;
+          dictationRef.current.onerror = null;
+          dictationRef.current.onend = null;
+          dictationRef.current.abort();
+        } catch {}
+        dictationRef.current = null;
+      }
+      if (exportTimerRef.current) {
+        clearTimeout(exportTimerRef.current);
+      }
+    };
+  }, []);
+
+  const wordCount = useMemo(() => countWords(note.content), [note.content]);
   const charCount = note.content.length;
   const hasVoiceRecordings = Array.isArray(note.voiceRecordings) && note.voiceRecordings.length > 0;
 
-  const handleSaveVoiceRecording = (recording: VoiceRecording) => {
+  const handleSaveVoiceRecording = useCallback((recording: VoiceRecording) => {
     const existing = note.voiceRecordings || [];
     onUpdateNote({
       ...note,
@@ -64,25 +97,25 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       updatedAt: new Date().toISOString(),
     });
     setShowRecorder(false);
-  };
+  }, [note, onUpdateNote]);
 
-  const handleDeleteVoiceRecording = (recordingId: string) => {
+  const handleDeleteVoiceRecording = useCallback((recordingId: string) => {
     const current = note.voiceRecordings || [];
     onUpdateNote({
       ...note,
       voiceRecordings: current.filter((r) => r.id !== recordingId),
       updatedAt: new Date().toISOString(),
     });
-  };
+  }, [note, onUpdateNote]);
 
-  const handleInsertTranscript = (transcriptText: string) => {
+  const handleInsertTranscript = useCallback((transcriptText: string) => {
     const quote = `\n\n> 🎙️ **Voice Memo:**\n> "${transcriptText}"\n`;
     onUpdateNote({
       ...note,
       content: (note.content ? note.content + quote : quote).trim(),
       updatedAt: new Date().toISOString(),
     });
-  };
+  }, [note, onUpdateNote]);
 
   const toggleDictation = () => {
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -93,7 +126,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
     if (isDictating) {
       if (dictationRef.current) {
-        try { dictationRef.current.abort(); } catch {}
+        try {
+          dictationRef.current.onresult = null;
+          dictationRef.current.onerror = null;
+          dictationRef.current.onend = null;
+          dictationRef.current.abort();
+        } catch {}
         dictationRef.current = null;
       }
       setIsDictating(false);
@@ -230,7 +268,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
       if (!result.canceled && result.filePath) {
         setExportStatus('Saved to disk!');
-        setTimeout(() => setExportStatus(null), 3000);
+        if (exportTimerRef.current) clearTimeout(exportTimerRef.current);
+        exportTimerRef.current = window.setTimeout(() => setExportStatus(null), 3000);
       } else {
         setExportStatus(null);
       }
@@ -311,6 +350,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       );
     });
   };
+
+  const renderedMarkdown = useMemo(() => {
+    if (!isPreview) return null;
+    return renderMarkdownPreview(note.content);
+  }, [isPreview, note.content]);
 
   return (
     <div
@@ -639,7 +683,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               color: 'var(--text-primary)',
             }}
           >
-            {renderMarkdownPreview(note.content)}
+            {renderedMarkdown}
           </div>
         ) : (
           <textarea
@@ -688,4 +732,4 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       </div>
     </div>
   );
-};
+});

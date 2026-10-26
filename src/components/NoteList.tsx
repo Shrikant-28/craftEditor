@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pin, Calendar, Tag, SearchX, Mic } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Pin, SearchX, Mic } from 'lucide-react';
 import { SearchMatch } from '../types/note';
 import { formatDuration } from '../utils/audioUtils';
 
@@ -11,7 +11,163 @@ interface NoteListProps {
   onClearFilters: () => void;
 }
 
-export const NoteList: React.FC<NoteListProps> = ({
+interface NoteListItemProps {
+  match: SearchMatch;
+  isSelected: boolean;
+  onSelectNote: (noteId: string) => void;
+  onTogglePin: (noteId: string, e: React.MouseEvent) => void;
+}
+
+const NoteListItem: React.FC<NoteListItemProps> = React.memo(({
+  match,
+  isSelected,
+  onSelectNote,
+  onTogglePin,
+}) => {
+  const { note, highlightedTitle, highlightedSnippet, matchedTags } = match;
+
+  const formattedDate = useMemo(() => {
+    return new Date(note.updatedAt).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
+  }, [note.updatedAt]);
+
+  const totalVoiceDuration = useMemo(() => {
+    if (!Array.isArray(note.voiceRecordings) || note.voiceRecordings.length === 0) return 0;
+    return note.voiceRecordings.reduce((sum, r) => sum + (r.duration || 0), 0);
+  }, [note.voiceRecordings]);
+
+  return (
+    <div
+      onClick={() => onSelectNote(note.id)}
+      style={{
+        padding: '12px 14px',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: isSelected ? 'var(--bg-card-active)' : 'var(--bg-card)',
+        border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+        position: 'relative',
+        boxShadow: isSelected ? '0 0 16px rgba(6, 182, 212, 0.15)' : 'none',
+      }}
+      className="glass-card"
+    >
+      {/* Header: Title and Pin */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '8px',
+          marginBottom: '6px',
+        }}
+      >
+        <h3
+          style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            color: isSelected ? '#ffffff' : 'var(--text-primary)',
+            lineHeight: '1.3',
+          }}
+          dangerouslySetInnerHTML={{ __html: highlightedTitle }}
+        />
+
+        <button
+          onClick={(e) => onTogglePin(note.id, e)}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '2px',
+            color: note.isPinned ? 'var(--accent-amber)' : 'var(--text-tertiary)',
+            opacity: note.isPinned ? 1 : 0.4,
+            transition: 'all 0.15s ease',
+          }}
+          title={note.isPinned ? 'Unpin note' : 'Pin note to top'}
+        >
+          <Pin size={14} fill={note.isPinned ? 'currentColor' : 'none'} />
+        </button>
+      </div>
+
+      {/* Snippet preview with highlighted tokens */}
+      <p
+        style={{
+          fontSize: '12px',
+          color: 'var(--text-secondary)',
+          lineHeight: '1.45',
+          marginBottom: '10px',
+          overflow: 'hidden',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+        }}
+        dangerouslySetInnerHTML={{ __html: highlightedSnippet }}
+      />
+
+      {/* Metadata Footer: Category, Voice Badge, Tags, Date */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '11px',
+          color: 'var(--text-tertiary)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <span
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              color: 'var(--text-secondary)',
+              fontWeight: 500,
+            }}
+          >
+            {note.category}
+          </span>
+
+          {Array.isArray(note.voiceRecordings) && note.voiceRecordings.length > 0 && (
+            <span
+              style={{
+                backgroundColor: 'rgba(6, 182, 212, 0.14)',
+                color: 'var(--accent-cyan)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                fontSize: '10px',
+              }}
+              title={`${note.voiceRecordings.length} voice memo(s)`}
+            >
+              <Mic size={10} />
+              <span>{formatDuration(totalVoiceDuration)}</span>
+            </span>
+          )}
+
+          {note.tags.slice(0, 2).map((tag) => (
+            <span
+              key={tag}
+              style={{
+                color: matchedTags.includes(tag) ? 'var(--accent-amber)' : 'var(--text-tertiary)',
+                fontWeight: matchedTags.includes(tag) ? 600 : 400,
+              }}
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+
+        <span>{formattedDate}</span>
+      </div>
+    </div>
+  );
+});
+
+export const NoteList: React.FC<NoteListProps> = React.memo(({
   matches,
   selectedNoteId,
   onSelectNote,
@@ -57,146 +213,15 @@ export const NoteList: React.FC<NoteListProps> = ({
         gap: '8px',
       }}
     >
-      {matches.map(({ note, highlightedTitle, highlightedSnippet, matchedTags, score }) => {
-        const isSelected = note.id === selectedNoteId;
-        const formattedDate = new Date(note.updatedAt).toLocaleDateString(undefined, {
-          month: 'short',
-          day: 'numeric',
-        });
-
-        return (
-          <div
-            key={note.id}
-            onClick={() => onSelectNote(note.id)}
-            style={{
-              padding: '12px 14px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: isSelected ? 'var(--bg-card-active)' : 'var(--bg-card)',
-              border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              position: 'relative',
-              boxShadow: isSelected ? '0 0 16px rgba(6, 182, 212, 0.15)' : 'none',
-            }}
-            className="glass-card"
-          >
-            {/* Header: Title and Pin */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: '8px',
-                marginBottom: '6px',
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  color: isSelected ? '#ffffff' : 'var(--text-primary)',
-                  lineHeight: '1.3',
-                }}
-                dangerouslySetInnerHTML={{ __html: highlightedTitle }}
-              />
-
-              <button
-                onClick={(e) => onTogglePin(note.id, e)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '2px',
-                  color: note.isPinned ? 'var(--accent-amber)' : 'var(--text-tertiary)',
-                  opacity: note.isPinned ? 1 : 0.4,
-                  transition: 'all 0.15s ease',
-                }}
-                title={note.isPinned ? 'Unpin note' : 'Pin note to top'}
-              >
-                <Pin size={14} fill={note.isPinned ? 'currentColor' : 'none'} />
-              </button>
-            </div>
-
-            {/* Snippet preview with highlighted tokens */}
-            <p
-              style={{
-                fontSize: '12px',
-                color: 'var(--text-secondary)',
-                lineHeight: '1.45',
-                marginBottom: '10px',
-                overflow: 'hidden',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-              }}
-              dangerouslySetInnerHTML={{ __html: highlightedSnippet }}
-            />
-
-            {/* Metadata Footer: Category, Voice Badge, Tags, Date */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: '11px',
-                color: 'var(--text-tertiary)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <span
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    color: 'var(--text-secondary)',
-                    fontWeight: 500,
-                  }}
-                >
-                  {note.category}
-                </span>
-
-                {Array.isArray(note.voiceRecordings) && note.voiceRecordings.length > 0 && (
-                  <span
-                    style={{
-                      backgroundColor: 'rgba(6, 182, 212, 0.14)',
-                      color: 'var(--accent-cyan)',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontWeight: 600,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '3px',
-                      fontSize: '10px',
-                    }}
-                    title={`${note.voiceRecordings.length} voice memo(s)`}
-                  >
-                    <Mic size={10} />
-                    <span>
-                      {formatDuration(
-                        note.voiceRecordings.reduce((sum, r) => sum + (r.duration || 0), 0)
-                      )}
-                    </span>
-                  </span>
-                )}
-
-                {note.tags.slice(0, 2).map((tag) => (
-                  <span
-                    key={tag}
-                    style={{
-                      color: matchedTags.includes(tag) ? 'var(--accent-amber)' : 'var(--text-tertiary)',
-                      fontWeight: matchedTags.includes(tag) ? 600 : 400,
-                    }}
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-
-              <span>{formattedDate}</span>
-            </div>
-          </div>
-        );
-      })}
+      {matches.map((match) => (
+        <NoteListItem
+          key={match.note.id}
+          match={match}
+          isSelected={match.note.id === selectedNoteId}
+          onSelectNote={onSelectNote}
+          onTogglePin={onTogglePin}
+        />
+      ))}
     </div>
   );
-};
+});

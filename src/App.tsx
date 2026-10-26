@@ -19,6 +19,7 @@ export const App: React.FC = () => {
   // Modals state
   const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
   const [isSystemModalOpen, setIsSystemModalOpen] = useState(false);
+  const [openRecorderTrigger, setOpenRecorderTrigger] = useState<number>(0);
 
   // 1. Initial Load from Electron Disk Storage
   useEffect(() => {
@@ -94,6 +95,29 @@ export const App: React.FC = () => {
     setSelectedNoteId(newNote.id);
   };
 
+  const handleCreateVoiceNote = () => {
+    const formattedDate = new Date().toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const newNote: Note = {
+      id: `note-${Date.now()}`,
+      title: `Voice Memo - ${formattedDate}`,
+      content: `# Voice Memo\n\n*Recorded on ${new Date().toLocaleString()}*\n\n`,
+      category: 'Voice Notes',
+      tags: ['voice-memo'],
+      isPinned: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      voiceRecordings: [],
+    };
+    setNotes((prev) => [newNote, ...prev]);
+    setSelectedNoteId(newNote.id);
+    setOpenRecorderTrigger(Date.now());
+  };
+
   const handleUpdateNote = (updated: Note) => {
     setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
   };
@@ -116,7 +140,7 @@ export const App: React.FC = () => {
   };
 
   const handleClearFilters = () => {
-    setFilter({ query: '', tag: undefined, category: undefined, onlyPinned: false });
+    setFilter({ query: '', tag: undefined, category: undefined, onlyPinned: false, onlyVoice: false });
   };
 
   const handleAddCategory = (newCat: string) => {
@@ -146,6 +170,7 @@ export const App: React.FC = () => {
           filter={filter}
           onFilterChange={handleFilterChange}
           onCreateNote={handleCreateNote}
+          onCreateVoiceNote={handleCreateVoiceNote}
           categories={categories}
           allTags={allTags}
           isDiskSynced={isDiskSynced}
@@ -188,6 +213,7 @@ export const App: React.FC = () => {
               onDeleteNote={handleDeleteNote}
               categories={categories}
               onAddCategory={handleAddCategory}
+              openRecorderTrigger={openRecorderTrigger}
             />
           ) : (
             <div

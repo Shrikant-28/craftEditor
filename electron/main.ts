@@ -29,6 +29,15 @@ function createWindow() {
     },
   });
 
+  // Enable microphone permissions for voice note recording
+  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'media') {
+      callback(true);
+      return;
+    }
+    callback(true);
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
   });

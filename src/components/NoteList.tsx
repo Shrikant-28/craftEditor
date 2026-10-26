@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pin, Calendar, Tag, SearchX } from 'lucide-react';
+import { Pin, Calendar, Tag, SearchX, Mic } from 'lucide-react';
 import { SearchMatch } from '../types/note';
+import { formatDuration } from '../utils/audioUtils';
 
 interface NoteListProps {
   matches: SearchMatch[];
@@ -131,7 +132,7 @@ export const NoteList: React.FC<NoteListProps> = ({
               dangerouslySetInnerHTML={{ __html: highlightedSnippet }}
             />
 
-            {/* Metadata Footer: Category, Tags, Date */}
+            {/* Metadata Footer: Category, Voice Badge, Tags, Date */}
             <div
               style={{
                 display: 'flex',
@@ -153,6 +154,30 @@ export const NoteList: React.FC<NoteListProps> = ({
                 >
                   {note.category}
                 </span>
+
+                {Array.isArray(note.voiceRecordings) && note.voiceRecordings.length > 0 && (
+                  <span
+                    style={{
+                      backgroundColor: 'rgba(6, 182, 212, 0.14)',
+                      color: 'var(--accent-cyan)',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '10px',
+                    }}
+                    title={`${note.voiceRecordings.length} voice memo(s)`}
+                  >
+                    <Mic size={10} />
+                    <span>
+                      {formatDuration(
+                        note.voiceRecordings.reduce((sum, r) => sum + (r.duration || 0), 0)
+                      )}
+                    </span>
+                  </span>
+                )}
 
                 {note.tags.slice(0, 2).map((tag) => (
                   <span

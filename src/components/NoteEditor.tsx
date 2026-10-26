@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Pin,
   Trash2,
@@ -12,8 +12,13 @@ import {
   FileCode,
   Plus,
   X,
+  Mic,
+  MicOff,
+  Sparkles,
 } from 'lucide-react';
-import { Note } from '../types/note';
+import { Note, VoiceRecording } from '../types/note';
+import { VoiceRecorder } from './VoiceRecorder';
+import { VoicePlayer } from './VoicePlayer';
 
 interface NoteEditorProps {
   note: Note;
@@ -21,6 +26,7 @@ interface NoteEditorProps {
   onDeleteNote: (noteId: string) => void;
   categories: string[];
   onAddCategory?: (name: string) => string | void;
+  openRecorderTrigger?: number;
 }
 
 export const NoteEditor: React.FC<NoteEditorProps> = ({
@@ -29,15 +35,108 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   onDeleteNote,
   categories,
   onAddCategory,
+  openRecorderTrigger,
 }) => {
   const [isPreview, setIsPreview] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState('');
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [showRecorder, setShowRecorder] = useState(false);
+  const [isDictating, setIsDictating] = useState(false);
+  const dictationRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (openRecorderTrigger && openRecorderTrigger > 0) {
+      setShowRecorder(true);
+    }
+  }, [openRecorderTrigger]);
 
   const wordCount = note.content.trim() ? note.content.trim().split(/\s+/).length : 0;
   const charCount = note.content.length;
+  const hasVoiceRecordings = Array.isArray(note.voiceRecordings) && note.voiceRecordings.length > 0;
+
+  const handleSaveVoiceRecording = (recording: VoiceRecording) => {
+    const existing = note.voiceRecordings || [];
+    onUpdateNote({
+      ...note,
+      voiceRecordings: [recording, ...existing],
+      updatedAt: new Date().toISOString(),
+    });
+    setShowRecorder(false);
+  };
+
+  const handleDeleteVoiceRecording = (recordingId: string) => {
+    const current = note.voiceRecordings || [];
+    onUpdateNote({
+      ...note,
+      voiceRecordings: current.filter((r) => r.id !== recordingId),
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleInsertTranscript = (transcriptText: string) => {
+    const quote = `\n\n> 🎙️ **Voice Memo:**\n> "${transcriptText}"\n`;
+    onUpdateNote({
+      ...note,
+      content: (note.content ? note.content + quote : quote).trim(),
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const toggleDictation = () => {
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      setShowRecorder(true);
+      return;
+    }
+
+    if (isDictating) {
+      if (dictationRef.current) {
+        try { dictationRef.current.abort(); } catch {}
+        dictationRef.current = null;
+      }
+      setIsDictating(false);
+    } else {
+      try {
+        const recognition = new SpeechRec();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = navigator.language || 'en-US';
+
+        recognition.onresult = (event: any) => {
+          let newSpeech = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              newSpeech += event.results[i][0].transcript + ' ';
+            }
+          }
+          if (newSpeech) {
+            onUpdateNote({
+              ...note,
+              content: note.content + (note.content.length > 0 && !note.content.endsWith(' ') && !note.content.endsWith('\n') ? ' ' : '') + newSpeech,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        };
+
+        recognition.onerror = () => {
+          setIsDictating(false);
+        };
+
+        recognition.onend = () => {
+          setIsDictating(false);
+        };
+
+        recognition.start();
+        dictationRef.current = recognition;
+        setIsDictating(true);
+      } catch (err) {
+        console.error('Dictation setup error:', err);
+        setIsDictating(false);
+      }
+    }
+  };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdateNote({
@@ -365,6 +464,52 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
         {/* Right: Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Record Voice Note */}
+          <button
+            onClick={() => setShowRecorder(!showRecorder)}
+            className="btn btn-ghost"
+            style={{
+              fontSize: '12px',
+              padding: '6px 10px',
+              color: showRecorder
+                ? 'var(--accent-rose)'
+                : hasVoiceRecordings
+                ? 'var(--accent-cyan)'
+                : 'var(--text-secondary)',
+              backgroundColor: showRecorder
+                ? 'rgba(244, 63, 94, 0.12)'
+                : hasVoiceRecordings
+                ? 'rgba(6, 182, 212, 0.1)'
+                : undefined,
+            }}
+            title={showRecorder ? 'Close Voice Recorder' : 'Record Voice Note'}
+          >
+            <Mic size={14} />
+            <span>
+              {showRecorder
+                ? 'Close Mic'
+                : hasVoiceRecordings
+                ? `Voice (${note.voiceRecordings!.length})`
+                : 'Voice Note'}
+            </span>
+          </button>
+
+          {/* Dictate Button */}
+          <button
+            onClick={toggleDictation}
+            className="btn btn-ghost"
+            style={{
+              fontSize: '12px',
+              padding: '6px 10px',
+              color: isDictating ? 'var(--accent-rose)' : 'var(--text-secondary)',
+              backgroundColor: isDictating ? 'rgba(244, 63, 94, 0.15)' : undefined,
+            }}
+            title={isDictating ? 'Stop speech dictation' : 'Voice typing / Dictate into note content'}
+          >
+            <Sparkles size={14} style={{ color: isDictating ? 'var(--accent-rose)' : 'var(--accent-violet)' }} />
+            <span>{isDictating ? 'Listening...' : 'Dictate'}</span>
+          </button>
+
           {/* Toggle Preview / Edit Mode */}
           <button
             onClick={() => setIsPreview(!isPreview)}
@@ -433,6 +578,56 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           }}
         />
       </div>
+
+      {/* Voice Notes Section */}
+      {(showRecorder || hasVoiceRecordings) && (
+        <div style={{ padding: '0 24px 10px 24px' }}>
+          {showRecorder && (
+            <VoiceRecorder
+              onSaveRecording={handleSaveVoiceRecording}
+              onClose={() => setShowRecorder(false)}
+              onInsertTranscriptDirectly={handleInsertTranscript}
+            />
+          )}
+
+          {hasVoiceRecordings && (
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--accent-cyan)' }}>
+                  <Mic size={14} />
+                  <span>Voice Memos ({note.voiceRecordings!.length})</span>
+                </div>
+                {!showRecorder && (
+                  <button
+                    onClick={() => setShowRecorder(true)}
+                    className="btn btn-ghost"
+                    style={{ fontSize: '11px', padding: '3px 8px', gap: '4px', color: 'var(--accent-cyan)' }}
+                  >
+                    <Plus size={12} />
+                    <span>Record Audio Clip</span>
+                  </button>
+                )}
+              </div>
+
+              {note.voiceRecordings!.map((rec) => (
+                <VoicePlayer
+                  key={rec.id}
+                  recording={rec}
+                  onDelete={handleDeleteVoiceRecording}
+                  onInsertTranscript={handleInsertTranscript}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Note Body: Editor or Preview */}
       <div style={{ flex: 1, padding: '8px 24px 20px 24px', overflowY: 'auto' }}>

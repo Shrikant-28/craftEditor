@@ -1,6 +1,39 @@
 import { Note } from '../types/note';
+import { createSampleAudioBase64, generateWaveform } from '../utils/audioUtils';
 
 export const INITIAL_NOTES: Note[] = [
+  {
+    id: 'note-voice-demo',
+    title: 'Voice Memo: Q4 Sprint Planning & Architecture Review',
+    content: `# Voice Memo: Q4 Sprint Planning & Architecture Review
+
+*Recorded audio note discussing upcoming sprint goals and audio feature implementation.*
+
+### Action Items from Recording:
+- [x] Integrate Web Audio API and MediaRecorder for voice memos
+- [x] Implement dynamic frequency soundwave visualizer
+- [x] Enable interactive waveform seek scrubber & playback speed toggle
+- [ ] Connect cloud sync for binary audio storage
+
+> 🎙️ **Voice Memo:**
+> "Hey team, just summarizing our morning standup. We decided to prioritize the voice note capability with interactive waveform scrubbing and real-time speech transcription. Please make sure the audio files persist directly in the local store and can be exported as markdown or webm."`,
+    category: 'Product',
+    tags: ['voice-memo', 'planning', 'audio', 'sprint'],
+    isPinned: true,
+    createdAt: '2026-10-26T09:30:00.000Z',
+    updatedAt: '2026-10-26T10:15:00.000Z',
+    voiceRecordings: [
+      {
+        id: 'voice-demo-1',
+        audioData: createSampleAudioBase64(3.2),
+        duration: 3,
+        recordedAt: '2026-10-26T09:32:00.000Z',
+        mimeType: 'audio/wav',
+        transcript: 'Hey team, just summarizing our morning standup. We decided to prioritize the voice note capability with interactive waveform scrubbing and real-time speech transcription. Please make sure the audio files persist directly in the local store.',
+        waveform: generateWaveform(36, 'voice-demo-1'),
+      },
+    ],
+  },
   {
     id: 'note-1',
     title: 'Electron + React Desktop Architecture',

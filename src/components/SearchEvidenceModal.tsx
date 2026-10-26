@@ -145,7 +145,7 @@ export const SearchEvidenceModal: React.FC<SearchEvidenceModalProps> = ({ isOpen
               }}
             />
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
               <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#070a12' }}>
                 <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Terms</div>
                 <div style={{ fontSize: '12px', color: '#93c5fd', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
@@ -171,6 +171,13 @@ export const SearchEvidenceModal: React.FC<SearchEvidenceModalProps> = ({ isOpen
                 <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Only Pinned</div>
                 <div style={{ fontSize: '12px', color: '#fde047', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
                   {parsed.onlyPinned ? 'YES' : 'NO'}
+                </div>
+              </div>
+
+              <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#070a12' }}>
+                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Voice Notes</div>
+                <div style={{ fontSize: '12px', color: '#38bdf8', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                  {parsed.onlyVoice ? 'YES' : 'NO'}
                 </div>
               </div>
             </div>

@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Check,
   X,
+  Mic,
 } from 'lucide-react';
 import { Note, SearchFilter } from '../types/note';
 
@@ -18,6 +19,7 @@ interface SidebarProps {
   filter: SearchFilter;
   onFilterChange: (update: Partial<SearchFilter>) => void;
   onCreateNote: () => void;
+  onCreateVoiceNote: () => void;
   categories: string[];
   allTags: { tag: string; count: number }[];
   isDiskSynced: boolean;
@@ -29,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   filter,
   onFilterChange,
   onCreateNote,
+  onCreateVoiceNote,
   categories,
   allTags,
   isDiskSynced,
@@ -64,6 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const pinnedCount = notes.filter((n) => n.isPinned).length;
+  const voiceCount = notes.filter((n) => Array.isArray(n.voiceRecordings) && n.voiceRecordings.length > 0).length;
 
   return (
     <aside
@@ -78,14 +82,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }}
     >
       {/* Action Header */}
-      <div style={{ padding: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
+      <div style={{ padding: '14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <button
           onClick={onCreateNote}
           className="btn btn-primary"
-          style={{ width: '100%', justifyContent: 'center', height: '38px' }}
+          style={{ width: '100%', justifyContent: 'center', height: '36px' }}
         >
           <Plus size={16} />
           <span>New Note</span>
+        </button>
+
+        <button
+          onClick={onCreateVoiceNote}
+          className="btn"
+          style={{
+            width: '100%',
+            justifyContent: 'center',
+            height: '34px',
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2))',
+            border: '1px solid rgba(139, 92, 246, 0.4)',
+            color: '#e0e7ff',
+            boxShadow: '0 2px 8px rgba(139, 92, 246, 0.15)',
+          }}
+          title="Create a new voice note and start recording"
+        >
+          <Mic size={14} style={{ color: 'var(--accent-cyan)' }} />
+          <span>Record Voice Note</span>
         </button>
       </div>
 
@@ -107,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div
-            onClick={() => onFilterChange({ category: undefined, tag: undefined, onlyPinned: false })}
+            onClick={() => onFilterChange({ category: undefined, tag: undefined, onlyPinned: false, onlyVoice: false })}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -116,11 +138,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
               backgroundColor:
-                !filter.category && !filter.tag && !filter.onlyPinned
+                !filter.category && !filter.tag && !filter.onlyPinned && !filter.onlyVoice
                   ? 'rgba(6, 182, 212, 0.12)'
                   : 'transparent',
               color:
-                !filter.category && !filter.tag && !filter.onlyPinned
+                !filter.category && !filter.tag && !filter.onlyPinned && !filter.onlyVoice
                   ? 'var(--accent-cyan)'
                   : 'var(--text-secondary)',
               transition: 'background 0.15s ease',
@@ -135,7 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div
-            onClick={() => onFilterChange({ onlyPinned: !filter.onlyPinned })}
+            onClick={() => onFilterChange({ onlyPinned: !filter.onlyPinned, onlyVoice: false })}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -146,6 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               backgroundColor: filter.onlyPinned ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
               color: filter.onlyPinned ? 'var(--accent-amber)' : 'var(--text-secondary)',
               transition: 'background 0.15s ease',
+              marginBottom: '2px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
@@ -153,6 +176,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Pinned Notes</span>
             </div>
             <span style={{ fontSize: '12px', opacity: 0.7 }}>{pinnedCount}</span>
+          </div>
+
+          <div
+            onClick={() => onFilterChange({ onlyVoice: !filter.onlyVoice, onlyPinned: false })}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 10px',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              backgroundColor: filter.onlyVoice ? 'rgba(139, 92, 246, 0.18)' : 'transparent',
+              color: filter.onlyVoice ? 'var(--accent-violet)' : 'var(--text-secondary)',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+              <Mic size={15} />
+              <span>Voice Notes</span>
+            </div>
+            <span style={{ fontSize: '12px', opacity: 0.7 }}>{voiceCount}</span>
           </div>
         </div>
 

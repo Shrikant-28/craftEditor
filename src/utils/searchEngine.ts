@@ -17,6 +17,7 @@ export function parseSearchQuery(rawQuery: string): {
   tags: string[];
   categories: string[];
   onlyPinned: boolean;
+  onlyVoice: boolean;
 } {
   const exactPhrases: string[] = [];
   let remaining = rawQuery;
@@ -36,6 +37,7 @@ export function parseSearchQuery(rawQuery: string): {
   const tags: string[] = [];
   const categories: string[] = [];
   let onlyPinned = false;
+  let onlyVoice = false;
 
   for (const token of tokens) {
     const lower = token.toLowerCase();
@@ -47,12 +49,14 @@ export function parseSearchQuery(rawQuery: string): {
       if (cat) categories.push(cat);
     } else if (lower === 'is:pinned' || lower === 'pinned:true') {
       onlyPinned = true;
+    } else if (lower === 'is:voice' || lower === 'has:voice' || lower === 'voice:true' || lower === 'type:voice') {
+      onlyVoice = true;
     } else {
       terms.push(lower);
     }
   }
 
-  return { terms, exactPhrases, tags, categories, onlyPinned };
+  return { terms, exactPhrases, tags, categories, onlyPinned, onlyVoice };
 }
 
 /**
@@ -109,7 +113,7 @@ export function extractSnippet(content: string, searchTokens: string[], maxLengt
  */
 export function executeSearch(notes: Note[], filter: SearchFilter): { matches: SearchMatch[]; durationMs: number } {
   const startTime = performance.now();
-  const { query, tag: activeTag, category: activeCategory, onlyPinned: filterPinned } = filter;
+  const { query, tag: activeTag, category: activeCategory, onlyPinned: filterPinned, onlyVoice: filterVoice } = filter;
 
   const parsed = parseSearchQuery(query || '');
   if (activeTag && !parsed.tags.includes(activeTag.toLowerCase())) {
@@ -121,9 +125,17 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
   if (filterPinned) {
     parsed.onlyPinned = true;
   }
+  if (filterVoice) {
+    parsed.onlyVoice = true;
+  }
 
   const allTokens = [...parsed.terms, ...parsed.exactPhrases];
-  const hasActiveQuery = allTokens.length > 0 || parsed.tags.length > 0 || parsed.categories.length > 0 || parsed.onlyPinned;
+  const hasActiveQuery =
+    allTokens.length > 0 ||
+    parsed.tags.length > 0 ||
+    parsed.categories.length > 0 ||
+    parsed.onlyPinned ||
+    parsed.onlyVoice;
 
   if (!hasActiveQuery) {
     // Return all notes sorted by pinned then updatedAt
@@ -138,6 +150,7 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
         highlightedTitle: note.title,
         highlightedSnippet: extractSnippet(note.content, []),
         matchedTags: [],
+        matchedVoice: false,
       }));
 
     return { matches: defaultMatches, durationMs: performance.now() - startTime };
@@ -164,8 +177,16 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
       continue;
     }
 
-    // 4. Scoring calculation
+    // 4. Voice note filter check
+    const hasVoiceRecordings = Array.isArray(note.voiceRecordings) && note.voiceRecordings.length > 0;
+    if (parsed.onlyVoice && !hasVoiceRecordings) {
+      continue;
+    }
+
+    // 5. Scoring calculation
     let score = 0;
+    let matchedVoice = false;
+    let matchedVoiceTranscriptSnippet = '';
     const matchedTags: string[] = [];
     const titleLower = note.title.toLowerCase();
     const contentLower = note.content.toLowerCase();
@@ -224,6 +245,36 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
       }
     }
 
+    // Check Voice Recordings transcripts
+    if (hasVoiceRecordings && allTokens.length > 0) {
+      for (const rec of note.voiceRecordings!) {
+        if (!rec.transcript) continue;
+        const transcriptLower = rec.transcript.toLowerCase();
+
+        for (const phrase of parsed.exactPhrases) {
+          if (transcriptLower.includes(phrase)) {
+            score += 50;
+            matchesAnyText = true;
+            matchedVoice = true;
+            if (!matchedVoiceTranscriptSnippet) {
+              matchedVoiceTranscriptSnippet = `[🎙️ Voice Memo]: ${extractSnippet(rec.transcript, allTokens)}`;
+            }
+          }
+        }
+
+        for (const term of parsed.terms) {
+          if (transcriptLower.includes(term)) {
+            score += 30;
+            matchesAnyText = true;
+            matchedVoice = true;
+            if (!matchedVoiceTranscriptSnippet) {
+              matchedVoiceTranscriptSnippet = `[🎙️ Voice Memo]: ${extractSnippet(rec.transcript, allTokens)}`;
+            }
+          }
+        }
+      }
+    }
+
     if (allTokens.length > 0 && !matchesAnyText) {
       continue;
     }
@@ -233,20 +284,26 @@ export function executeSearch(notes: Note[], filter: SearchFilter): { matches: S
       score += 10;
     }
 
+    // Boost notes with voice recording if filtered by voice
+    if (parsed.onlyVoice && hasVoiceRecordings) {
+      score += 15;
+    }
+
     // Recency boost (notes updated in the last 7 days get minor bonus)
     const ageDays = (Date.now() - new Date(note.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
     if (ageDays < 7) {
       score += Math.max(0, 5 - ageDays);
     }
 
-    const snippet = extractSnippet(note.content, allTokens);
+    const snippetText = matchedVoiceTranscriptSnippet || extractSnippet(note.content, allTokens);
 
     results.push({
       note,
       score,
       highlightedTitle: highlightText(note.title, allTokens),
-      highlightedSnippet: highlightText(snippet, allTokens),
+      highlightedSnippet: highlightText(snippetText, allTokens),
       matchedTags: [...new Set(matchedTags)],
+      matchedVoice,
     });
   }
 

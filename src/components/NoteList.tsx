@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pin, SearchX, Mic } from 'lucide-react';
+import { Pin, SearchX, Mic, FileText, Plus } from 'lucide-react';
 import { SearchMatch } from '../types/note';
 import { formatDuration } from '../utils/audioUtils';
 
@@ -9,6 +9,8 @@ interface NoteListProps {
   onSelectNote: (noteId: string) => void;
   onTogglePin: (noteId: string, e: React.MouseEvent) => void;
   onClearFilters: () => void;
+  totalNotes?: number;
+  onCreateNote?: () => void;
 }
 
 interface NoteListItemProps {
@@ -173,8 +175,12 @@ export const NoteList: React.FC<NoteListProps> = React.memo(({
   onSelectNote,
   onTogglePin,
   onClearFilters,
+  totalNotes = 0,
+  onCreateNote,
 }) => {
   if (matches.length === 0) {
+    const isDbEmpty = totalNotes === 0;
+
     return (
       <div
         style={{
@@ -183,21 +189,59 @@ export const NoteList: React.FC<NoteListProps> = React.memo(({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '40px 20px',
+          padding: '40px 24px',
           color: 'var(--text-tertiary)',
           textAlign: 'center',
         }}
       >
-        <SearchX size={36} style={{ marginBottom: '12px', opacity: 0.5 }} />
-        <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-          No matching notes found
-        </p>
-        <p style={{ fontSize: '12px', maxWidth: '240px', marginBottom: '16px' }}>
-          Try adjusting your query, or removing active tags and filters.
-        </p>
-        <button onClick={onClearFilters} className="btn btn-ghost" style={{ fontSize: '12px' }}>
-          Reset Search & Filters
-        </button>
+        {isDbEmpty ? (
+          <>
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--accent-cyan)',
+                marginBottom: '14px',
+              }}
+            >
+              <FileText size={24} />
+            </div>
+            <p style={{ fontSize: '14px', fontWeight: 600, color: '#f3f4f6', marginBottom: '6px' }}>
+              No notes in database
+            </p>
+            <p style={{ fontSize: '12px', maxWidth: '220px', marginBottom: '16px', lineHeight: '1.5', color: 'var(--text-secondary)' }}>
+              Your SQLite database is ready. Create your first note to begin.
+            </p>
+            {onCreateNote && (
+              <button
+                onClick={onCreateNote}
+                className="btn btn-primary"
+                style={{ fontSize: '12px', padding: '7px 14px', gap: '6px' }}
+              >
+                <Plus size={14} />
+                <span>Create First Note</span>
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <SearchX size={36} style={{ marginBottom: '12px', opacity: 0.5 }} />
+            <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+              No matching notes found
+            </p>
+            <p style={{ fontSize: '12px', maxWidth: '240px', marginBottom: '16px' }}>
+              Try adjusting your query, or removing active tags and filters.
+            </p>
+            <button onClick={onClearFilters} className="btn btn-ghost" style={{ fontSize: '12px' }}>
+              Reset Search & Filters
+            </button>
+          </>
+        )}
       </div>
     );
   }

@@ -8,6 +8,15 @@ export interface SystemInfo {
   chromeVersion: string;
   appPath: string;
   userDataPath: string;
+  databaseEngine?: string;
+}
+
+export interface DatabaseStats {
+  filePath: string;
+  fileSizeBytes: number;
+  totalNotes: number;
+  totalVoiceRecordings: number;
+  engine: string;
 }
 
 export interface ElectronAPI {
@@ -16,8 +25,9 @@ export interface ElectronAPI {
   closeWindow: () => Promise<void>;
   isMaximized: () => Promise<boolean>;
   getSystemInfo: () => Promise<SystemInfo>;
-  loadNotes: () => Promise<any>;
-  saveNotes: (notes: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+  loadNotes: () => Promise<any[]>;
+  saveNotes: (notes: any[]) => Promise<{ success: boolean; filePath?: string; count?: number; engine?: string; error?: string }>;
+  getDatabaseStats: () => Promise<DatabaseStats | null>;
   exportNote: (data: { title: string; content: string }) => Promise<{ canceled: boolean; filePath?: string; error?: string }>;
   openExternalUrl: (url: string) => Promise<boolean>;
 }
@@ -30,6 +40,7 @@ const electronAPI: ElectronAPI = {
   getSystemInfo: () => ipcRenderer.invoke('app:get-system-info'),
   loadNotes: () => ipcRenderer.invoke('storage:load-notes'),
   saveNotes: (notes) => ipcRenderer.invoke('storage:save-notes', notes),
+  getDatabaseStats: () => ipcRenderer.invoke('storage:get-db-stats'),
   exportNote: (data) => ipcRenderer.invoke('dialog:export-note', data),
   openExternalUrl: (url) => ipcRenderer.invoke('shell:open-external', url),
 };

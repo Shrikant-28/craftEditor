@@ -1,6 +1,14 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import {
+  initDatabase,
+  loadAllNotes,
+  saveAllNotes,
+  getDatabaseStats,
+  closeDatabase,
+  NoteRecord,
+} from './database';
 
 // Optimize V8 memory ceiling and Chromium background footprint
 app.commandLine.appendSwitch('disable-site-isolation-trials');
@@ -9,11 +17,6 @@ app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256');
 let mainWindow: BrowserWindow | null = null;
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-
-function getNotesFilePath() {
-  const userDataDir = app.getPath('userData');
-  return path.join(userDataDir, 'aura_notes_store.json');
-}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -65,7 +68,14 @@ function createWindow() {
 }
 
 // App lifecycle
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    // Initialize Local SQLite Database (aura_notes.sqlite)
+    await initDatabase(app.getPath('userData'));
+  } catch (err) {
+    console.error('Failed to initialize SQLite database:', err);
+  }
+
   setupIpcHandlers();
   createWindow();
 
@@ -80,6 +90,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  closeDatabase();
 });
 
 // IPC handlers for desktop communication
@@ -116,6 +130,7 @@ function setupIpcHandlers() {
       chromeVersion: process.versions.chrome,
       appPath: app.getAppPath(),
       userDataPath: app.getPath('userData'),
+      databaseEngine: 'SQLite 3 (ACID Relational Storage: aura_notes.sqlite)',
     };
   });
 
@@ -128,29 +143,32 @@ function setupIpcHandlers() {
     return false;
   });
 
-  // Local file storage for notes - Asynchronous non-blocking I/O
+  // Local SQLite Database Handlers
   ipcMain.handle('storage:load-notes', async () => {
     try {
-      const filePath = getNotesFilePath();
-      if (fs.existsSync(filePath)) {
-        const raw = await fs.promises.readFile(filePath, 'utf-8');
-        return JSON.parse(raw);
-      }
+      return loadAllNotes();
     } catch (err) {
-      console.error('Failed to load notes from disk:', err);
+      console.error('Failed to load notes from SQLite:', err);
+      return [];
     }
-    return null;
   });
 
-  ipcMain.handle('storage:save-notes', async (_, notes) => {
+  ipcMain.handle('storage:save-notes', async (_, notes: NoteRecord[]) => {
     try {
-      const filePath = getNotesFilePath();
-      // Use compact JSON serialization without indent to avoid 2x string memory bloat
-      await fs.promises.writeFile(filePath, JSON.stringify(notes), 'utf-8');
-      return { success: true, filePath };
+      const res = await saveAllNotes(notes);
+      return { success: true, filePath: res.filePath, count: res.count, engine: 'SQLite' };
     } catch (err) {
-      console.error('Failed to save notes to disk:', err);
+      console.error('Failed to save notes to SQLite:', err);
       return { success: false, error: String(err) };
+    }
+  });
+
+  ipcMain.handle('storage:get-db-stats', async () => {
+    try {
+      return getDatabaseStats();
+    } catch (err) {
+      console.error('Failed to get database stats:', err);
+      return null;
     }
   });
 

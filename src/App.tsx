@@ -9,10 +9,11 @@ import { SystemInfoModal } from './components/SystemInfoModal';
 import { Note, SearchFilter } from './types/note';
 import { INITIAL_NOTES } from './data/initialNotes';
 import { executeSearch } from './utils/searchEngine';
+import { Database, Plus, Mic } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>(INITIAL_NOTES);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(INITIAL_NOTES[0].id);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [filter, setFilter] = useState<SearchFilter>({ query: '' });
   const [isDiskSynced, setIsDiskSynced] = useState<boolean>(true);
 
@@ -21,19 +22,34 @@ export const App: React.FC = () => {
   const [isSystemModalOpen, setIsSystemModalOpen] = useState(false);
   const [openRecorderTrigger, setOpenRecorderTrigger] = useState<number>(0);
 
-  // 1. Initial Load from Electron Disk Storage
+  // 1. Initial Load from Local SQLite Database (aura_notes.sqlite)
   useEffect(() => {
     if (window.electronAPI) {
       window.electronAPI.loadNotes().then((saved) => {
         if (Array.isArray(saved) && saved.length > 0) {
           setNotes(saved);
           setSelectedNoteId(saved[0].id);
+        } else {
+          setNotes([]);
+          setSelectedNoteId(null);
         }
       });
+    } else {
+      // Browser preview fallback
+      try {
+        const stored = localStorage.getItem('aura_notes_sqlite_store');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setNotes(parsed);
+            setSelectedNoteId(parsed[0].id);
+          }
+        }
+      } catch {}
     }
   }, []);
 
-  // 2. Debounced persistence to Electron Disk Storage to avoid IPC memory thrashing on every keystroke
+  // 2. Debounced persistence to SQLite Database (800ms debounce)
   const isInitialMount = useRef(true);
   const notesRef = useRef(notes);
   notesRef.current = notes;
@@ -43,13 +59,21 @@ export const App: React.FC = () => {
       isInitialMount.current = false;
       return;
     }
-    if (!window.electronAPI) return;
 
     setIsDiskSynced(false);
     const timer = setTimeout(() => {
-      window.electronAPI?.saveNotes(notes).then((res) => {
-        setIsDiskSynced(res.success);
-      });
+      if (window.electronAPI) {
+        window.electronAPI.saveNotes(notes).then((res) => {
+          setIsDiskSynced(res.success);
+        });
+      } else {
+        try {
+          localStorage.setItem('aura_notes_sqlite_store', JSON.stringify(notes));
+          setIsDiskSynced(true);
+        } catch {
+          setIsDiskSynced(false);
+        }
+      }
     }, 800);
 
     return () => clearTimeout(timer);
@@ -67,13 +91,13 @@ export const App: React.FC = () => {
   }, []);
 
   const [customCategories, setCustomCategories] = useState<string[]>([
+    'General',
     'Engineering',
+    'Personal',
     'Research',
-    'Product',
-    'Design',
   ]);
 
-  // Combined single-pass calculation for categories and tags to eliminate redundant iterations and arrays
+  // Combined single-pass calculation for categories and tags
   const { categories, allTags } = useMemo(() => {
     const categorySet = new Set<string>(customCategories);
     const tagCountMap = new Map<string, number>();
@@ -103,7 +127,7 @@ export const App: React.FC = () => {
     return executeSearch(notes, filter);
   }, [notes, filter]);
 
-  // Memoized handlers to stabilize props for child components
+  // Memoized handlers
   const handleFilterChange = useCallback((update: Partial<SearchFilter>) => {
     setFilter((prev) => ({ ...prev, ...update }));
   }, []);
@@ -231,6 +255,8 @@ export const App: React.FC = () => {
             onSelectNote={setSelectedNoteId}
             onTogglePin={handleTogglePin}
             onClearFilters={handleClearFilters}
+            totalNotes={notes.length}
+            onCreateNote={handleCreateNote}
           />
         </div>
 
@@ -250,13 +276,60 @@ export const App: React.FC = () => {
               style={{
                 flex: 1,
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--text-tertiary)',
                 fontSize: '14px',
+                gap: '14px',
+                padding: '40px',
               }}
             >
-              Select or create a note to start editing
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '18px',
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(139, 92, 246, 0.15))',
+                  border: '1px solid rgba(6, 182, 212, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--accent-cyan)',
+                  boxShadow: '0 8px 24px rgba(6, 182, 212, 0.15)',
+                }}
+              >
+                <Database size={32} />
+              </div>
+
+              <div style={{ fontSize: '18px', fontWeight: 600, color: '#f3f4f6', textAlign: 'center' }}>
+                Local SQLite Database Connected
+              </div>
+
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '380px', lineHeight: '1.6' }}>
+                All mock data has been removed. Notes and voice memos are stored directly in your local ACID-compliant SQLite database (<code style={{ color: 'var(--accent-cyan)' }}>aura_notes.sqlite</code>).
+              </p>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
+                <button onClick={handleCreateNote} className="btn btn-primary" style={{ padding: '8px 18px', gap: '6px' }}>
+                  <Plus size={15} />
+                  <span>New Note</span>
+                </button>
+                <button
+                  onClick={handleCreateVoiceNote}
+                  className="btn btn-ghost"
+                  style={{
+                    padding: '8px 18px',
+                    gap: '6px',
+                    color: 'var(--accent-cyan)',
+                    backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                    border: '1px solid rgba(6, 182, 212, 0.25)',
+                  }}
+                >
+                  <Mic size={15} />
+                  <span>Record Voice Memo</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -6,7 +6,7 @@ import {
   Folder,
   Plus,
   Layers,
-  HardDrive,
+  Database,
   CheckCircle2,
   Check,
   X,
@@ -344,25 +344,31 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '4px 6px' }}>
-            {allTags.map(({ tag, count }) => {
-              const isSelected = filter.tag?.toLowerCase() === tag.toLowerCase();
-              return (
-                <button
-                  key={tag}
-                  onClick={() => onFilterChange({ tag: isSelected ? undefined : tag })}
-                  className={`chip ${isSelected ? 'active' : ''}`}
-                >
-                  <Tag size={10} />
-                  <span>#{tag}</span>
-                  <span style={{ opacity: 0.5 }}>{count}</span>
-                </button>
-              );
-            })}
+            {allTags.length === 0 ? (
+              <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', padding: '4px 6px', fontStyle: 'italic' }}>
+                No tags created yet
+              </div>
+            ) : (
+              allTags.map(({ tag, count }) => {
+                const isSelected = filter.tag?.toLowerCase() === tag.toLowerCase();
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => onFilterChange({ tag: isSelected ? undefined : tag })}
+                    className={`chip ${isSelected ? 'active' : ''}`}
+                  >
+                    <Tag size={10} />
+                    <span>#{tag}</span>
+                    <span style={{ opacity: 0.5 }}>{count}</span>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
 
-      {/* Footer / Disk Sync Indicator */}
+      {/* Footer / SQLite Database Indicator */}
       <div
         style={{
           padding: '12px 14px',
@@ -375,8 +381,8 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-          <HardDrive size={13} />
-          <span>Local Disk Storage</span>
+          <Database size={13} style={{ color: 'var(--accent-cyan)' }} />
+          <span>SQLite Database</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isDiskSynced ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
           <CheckCircle2 size={13} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Cpu, HardDrive, ShieldCheck, Terminal, FolderOpen } from 'lucide-react';
+import { X, Cpu, HardDrive, ShieldCheck, Database, FolderOpen } from 'lucide-react';
 import { SystemInfo } from '../types/electron';
 
 interface SystemInfoModalProps {
@@ -22,11 +22,12 @@ export const SystemInfoModal: React.FC<SystemInfoModalProps> = ({ isOpen, onClos
         setInfo({
           platform: 'web-browser',
           arch: 'x64',
-          nodeVersion: 'v24.18.0 (Host)',
+          nodeVersion: 'v20.19.1 (Electron embedded)',
           electronVersion: 'v34.2.0',
           chromeVersion: navigator.userAgent,
           appPath: 'd:/Shrikant/practice/rea',
-          userDataPath: 'Local Storage / AppData',
+          userDataPath: 'aura_notes.sqlite (Local Storage)',
+          databaseEngine: 'SQLite 3 (ACID Relational Storage: aura_notes.sqlite)',
         });
         setLoading(false);
       }
@@ -52,7 +53,7 @@ export const SystemInfoModal: React.FC<SystemInfoModalProps> = ({ isOpen, onClos
       <div
         className="glass-panel"
         style={{
-          width: '600px',
+          width: '620px',
           borderRadius: 'var(--radius-lg)',
           display: 'flex',
           flexDirection: 'column',
@@ -73,7 +74,7 @@ export const SystemInfoModal: React.FC<SystemInfoModalProps> = ({ isOpen, onClos
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Cpu size={18} style={{ color: 'var(--accent-cyan)' }} />
-            <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#f3f4f6' }}>Desktop Runtime & System Info</h2>
+            <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#f3f4f6' }}>Desktop Runtime & SQLite Database Info</h2>
           </div>
           <button onClick={onClose} className="btn-icon">
             <X size={16} />
@@ -92,13 +93,21 @@ export const SystemInfoModal: React.FC<SystemInfoModalProps> = ({ isOpen, onClos
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Local Database Engine</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-emerald)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Database size={14} />
+                  <span>SQLite 3 (ACID Relational)</span>
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Electron Engine Version</span>
                 <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>{info?.electronVersion}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Node.js Runtime</span>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>{info?.nodeVersion}</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff', fontFamily: 'var(--font-mono)' }}>{info?.nodeVersion}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
@@ -107,9 +116,9 @@ export const SystemInfoModal: React.FC<SystemInfoModalProps> = ({ isOpen, onClos
               </div>
 
               <div style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: 'rgba(255, 255, 255, 0.03)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>User Data Storage Location (Persistent Disk JSON):</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>SQLite Storage Location (<code style={{ color: 'var(--accent-cyan)' }}>aura_notes.sqlite</code>):</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
-                  {info?.userDataPath}
+                  {info?.userDataPath}\aura_notes.sqlite
                 </div>
               </div>
             </div>

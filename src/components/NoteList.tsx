@@ -1,0 +1,177 @@
+import React from 'react';
+import { Pin, Calendar, Tag, SearchX } from 'lucide-react';
+import { SearchMatch } from '../types/note';
+
+interface NoteListProps {
+  matches: SearchMatch[];
+  selectedNoteId: string | null;
+  onSelectNote: (noteId: string) => void;
+  onTogglePin: (noteId: string, e: React.MouseEvent) => void;
+  onClearFilters: () => void;
+}
+
+export const NoteList: React.FC<NoteListProps> = ({
+  matches,
+  selectedNoteId,
+  onSelectNote,
+  onTogglePin,
+  onClearFilters,
+}) => {
+  if (matches.length === 0) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px 20px',
+          color: 'var(--text-tertiary)',
+          textAlign: 'center',
+        }}
+      >
+        <SearchX size={36} style={{ marginBottom: '12px', opacity: 0.5 }} />
+        <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+          No matching notes found
+        </p>
+        <p style={{ fontSize: '12px', maxWidth: '240px', marginBottom: '16px' }}>
+          Try adjusting your query, or removing active tags and filters.
+        </p>
+        <button onClick={onClearFilters} className="btn btn-ghost" style={{ fontSize: '12px' }}>
+          Reset Search & Filters
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+      }}
+    >
+      {matches.map(({ note, highlightedTitle, highlightedSnippet, matchedTags, score }) => {
+        const isSelected = note.id === selectedNoteId;
+        const formattedDate = new Date(note.updatedAt).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+        });
+
+        return (
+          <div
+            key={note.id}
+            onClick={() => onSelectNote(note.id)}
+            style={{
+              padding: '12px 14px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: isSelected ? 'var(--bg-card-active)' : 'var(--bg-card)',
+              border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              position: 'relative',
+              boxShadow: isSelected ? '0 0 16px rgba(6, 182, 212, 0.15)' : 'none',
+            }}
+            className="glass-card"
+          >
+            {/* Header: Title and Pin */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '8px',
+                marginBottom: '6px',
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: isSelected ? '#ffffff' : 'var(--text-primary)',
+                  lineHeight: '1.3',
+                }}
+                dangerouslySetInnerHTML={{ __html: highlightedTitle }}
+              />
+
+              <button
+                onClick={(e) => onTogglePin(note.id, e)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  color: note.isPinned ? 'var(--accent-amber)' : 'var(--text-tertiary)',
+                  opacity: note.isPinned ? 1 : 0.4,
+                  transition: 'all 0.15s ease',
+                }}
+                title={note.isPinned ? 'Unpin note' : 'Pin note to top'}
+              >
+                <Pin size={14} fill={note.isPinned ? 'currentColor' : 'none'} />
+              </button>
+            </div>
+
+            {/* Snippet preview with highlighted tokens */}
+            <p
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                lineHeight: '1.45',
+                marginBottom: '10px',
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+              }}
+              dangerouslySetInnerHTML={{ __html: highlightedSnippet }}
+            />
+
+            {/* Metadata Footer: Category, Tags, Date */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '11px',
+                color: 'var(--text-tertiary)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    color: 'var(--text-secondary)',
+                    fontWeight: 500,
+                  }}
+                >
+                  {note.category}
+                </span>
+
+                {note.tags.slice(0, 2).map((tag) => (
+                  <span
+                    key={tag}
+                    style={{
+                      color: matchedTags.includes(tag) ? 'var(--accent-amber)' : 'var(--text-tertiary)',
+                      fontWeight: matchedTags.includes(tag) ? 600 : 400,
+                    }}
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+
+              <span>{formattedDate}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};

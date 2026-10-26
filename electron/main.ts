@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
 
@@ -117,6 +117,15 @@ function setupIpcHandlers() {
       appPath: app.getAppPath(),
       userDataPath: app.getPath('userData'),
     };
+  });
+
+  // Open external web URLs in native browser safely
+  ipcMain.handle('shell:open-external', async (_, url: string) => {
+    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://') || url.startsWith('mailto:'))) {
+      await shell.openExternal(url);
+      return true;
+    }
+    return false;
   });
 
   // Local file storage for notes - Asynchronous non-blocking I/O

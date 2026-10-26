@@ -19,6 +19,7 @@ export interface ElectronAPI {
   loadNotes: () => Promise<any>;
   saveNotes: (notes: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
   exportNote: (data: { title: string; content: string }) => Promise<{ canceled: boolean; filePath?: string; error?: string }>;
+  openExternalUrl: (url: string) => Promise<boolean>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -30,6 +31,7 @@ const electronAPI: ElectronAPI = {
   loadNotes: () => ipcRenderer.invoke('storage:load-notes'),
   saveNotes: (notes) => ipcRenderer.invoke('storage:save-notes', notes),
   exportNote: (data) => ipcRenderer.invoke('dialog:export-note', data),
+  openExternalUrl: (url) => ipcRenderer.invoke('shell:open-external', url),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

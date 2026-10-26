@@ -17,6 +17,7 @@ export interface ElectronAPI {
   loadNotes: () => Promise<any>;
   saveNotes: (notes: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
   exportNote: (data: { title: string; content: string }) => Promise<{ canceled: boolean; filePath?: string; error?: string }>;
+  openExternalUrl: (url: string) => Promise<boolean>;
 }
 
 declare global {

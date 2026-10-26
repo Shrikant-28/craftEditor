@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   Edit3,
+  Columns2,
   Check,
   Tag,
   Folder,
@@ -12,10 +13,20 @@ import {
   X,
   Mic,
   Sparkles,
+  Heading,
+  Bold,
+  Italic,
+  Code,
+  List,
+  ListTodo,
+  Quote,
+  Table,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { Note, VoiceRecording } from '../types/note';
 import { VoiceRecorder } from './VoiceRecorder';
 import { VoicePlayer } from './VoicePlayer';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface NoteEditorProps {
   note: Note;
@@ -50,7 +61,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
   onAddCategory,
   openRecorderTrigger,
 }) => {
-  const [isPreview, setIsPreview] = useState(false);
+  const [viewMode, setViewMode] = useState<'edit' | 'split' | 'preview'>('edit');
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState('');
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -58,6 +69,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
   const [showRecorder, setShowRecorder] = useState(false);
   const [isDictating, setIsDictating] = useState(false);
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dictationRef = useRef<any>(null);
   const exportTimerRef = useRef<number | null>(null);
 
@@ -285,76 +297,58 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
     }
   };
 
-  // Simple Markdown renderer for preview
-  const renderMarkdownPreview = (text: string) => {
-    const lines = text.split('\n');
-    return lines.map((line, idx) => {
-      if (line.startsWith('# ')) {
-        return (
-          <h1 key={idx} style={{ fontSize: '24px', fontWeight: 700, margin: '16px 0 8px 0', color: '#f3f4f6' }}>
-            {line.replace('# ', '')}
-          </h1>
-        );
+  // Interactive Task List Toggle (allows checking/unchecking boxes directly in Preview & Split modes)
+  const handleToggleTask = useCallback((taskIndex: number, newChecked: boolean) => {
+    const lines = note.content.split('\n');
+    let currentIdx = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (
+        trimmed.startsWith('- [ ] ') ||
+        trimmed.startsWith('- [x] ') ||
+        trimmed.startsWith('* [ ] ') ||
+        trimmed.startsWith('* [x] ')
+      ) {
+        if (currentIdx === taskIndex) {
+          const bracketIdx = lines[i].indexOf('[');
+          const prefix = lines[i].slice(0, bracketIdx + 1);
+          const rest = lines[i].slice(lines[i].indexOf(']') + 1);
+          lines[i] = `${prefix}${newChecked ? 'x' : ' '}${rest}`;
+          onUpdateNote({
+            ...note,
+            content: lines.join('\n'),
+            updatedAt: new Date().toISOString(),
+          });
+          break;
+        }
+        currentIdx++;
       }
-      if (line.startsWith('## ')) {
-        return (
-          <h2 key={idx} style={{ fontSize: '18px', fontWeight: 600, margin: '14px 0 6px 0', color: 'var(--accent-cyan)' }}>
-            {line.replace('## ', '')}
-          </h2>
-        );
-      }
-      if (line.startsWith('### ')) {
-        return (
-          <h3 key={idx} style={{ fontSize: '15px', fontWeight: 600, margin: '12px 0 4px 0', color: '#e5e7eb' }}>
-            {line.replace('### ', '')}
-          </h3>
-        );
-      }
-      if (line.startsWith('- [x] ')) {
-        return (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0', color: 'var(--text-secondary)' }}>
-            <span style={{ color: 'var(--accent-emerald)', fontWeight: 'bold' }}>✓</span>
-            <span style={{ textDecoration: 'line-through', opacity: 0.7 }}>{line.replace('- [x] ', '')}</span>
-          </div>
-        );
-      }
-      if (line.startsWith('- [ ] ')) {
-        return (
-          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0', color: 'var(--text-primary)' }}>
-            <span style={{ color: 'var(--text-tertiary)' }}>○</span>
-            <span>{line.replace('- [ ] ', '')}</span>
-          </div>
-        );
-      }
-      if (line.startsWith('- ') || line.startsWith('* ')) {
-        return (
-          <li key={idx} style={{ margin: '4px 0 4px 20px', color: 'var(--text-secondary)' }}>
-            {line.substring(2)}
-          </li>
-        );
-      }
-      if (line.startsWith('```')) {
-        return (
-          <div key={idx} style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#93c5fd', margin: '6px 0' }}>
-            {line}
-          </div>
-        );
-      }
-      if (!line.trim()) {
-        return <div key={idx} style={{ height: '8px' }} />;
-      }
-      return (
-        <p key={idx} style={{ margin: '4px 0', lineHeight: '1.6', color: 'var(--text-secondary)' }}>
-          {line}
-        </p>
-      );
-    });
-  };
+    }
+  }, [note, onUpdateNote]);
 
-  const renderedMarkdown = useMemo(() => {
-    if (!isPreview) return null;
-    return renderMarkdownPreview(note.content);
-  }, [isPreview, note.content]);
+  // Quick Markdown formatting helpers
+  const insertFormatting = useCallback((before: string, after = '', defaultText = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = note.content.slice(start, end) || defaultText;
+    const replacement = `${before}${selected}${after}`;
+    const newContent = note.content.slice(0, start) + replacement + note.content.slice(end);
+
+    onUpdateNote({
+      ...note,
+      content: newContent,
+      updatedAt: new Date().toISOString(),
+    });
+
+    setTimeout(() => {
+      textarea.focus();
+      const newPos = start + before.length + selected.length;
+      textarea.setSelectionRange(newPos, newPos);
+    }, 0);
+  }, [note, onUpdateNote]);
 
   return (
     <div
@@ -506,7 +500,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
           </div>
         </div>
 
-        {/* Right: Actions */}
+        {/* Right: Actions & View Mode Segmented Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* Record Voice Note */}
           <button
@@ -554,16 +548,83 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
             <span>{isDictating ? 'Listening...' : 'Dictate'}</span>
           </button>
 
-          {/* Toggle Preview / Edit Mode */}
-          <button
-            onClick={() => setIsPreview(!isPreview)}
-            className="btn btn-ghost"
-            style={{ fontSize: '12px', padding: '6px 10px' }}
-            title={isPreview ? 'Switch to Edit' : 'Preview Markdown'}
+          {/* View Mode Segmented Buttons: Edit | Split | Preview */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '2px',
+              border: '1px solid var(--border-subtle)',
+            }}
           >
-            {isPreview ? <Edit3 size={14} /> : <Eye size={14} />}
-            <span>{isPreview ? 'Edit' : 'Preview'}</span>
-          </button>
+            <button
+              onClick={() => setViewMode('edit')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                fontSize: '11px',
+                fontWeight: 500,
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: viewMode === 'edit' ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
+                color: viewMode === 'edit' ? 'var(--accent-cyan)' : 'var(--text-tertiary)',
+                transition: 'all 0.15s ease',
+              }}
+              title="Markdown Editor Mode"
+            >
+              <Edit3 size={13} />
+              <span>Edit</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('split')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                fontSize: '11px',
+                fontWeight: 500,
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: viewMode === 'split' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                color: viewMode === 'split' ? '#c4b5fd' : 'var(--text-tertiary)',
+                transition: 'all 0.15s ease',
+              }}
+              title="Side-by-side Live Editor & Markdown Preview"
+            >
+              <Columns2 size={13} />
+              <span>Split</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('preview')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                fontSize: '11px',
+                fontWeight: 500,
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: viewMode === 'preview' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                color: viewMode === 'preview' ? 'var(--accent-emerald)' : 'var(--text-tertiary)',
+                transition: 'all 0.15s ease',
+              }}
+              title="Native Rendered Markdown with Syntax Highlighting"
+            >
+              <Eye size={13} />
+              <span>Preview</span>
+            </button>
+          </div>
 
           {/* Pin/Unpin */}
           <button
@@ -673,36 +734,164 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
         </div>
       )}
 
-      {/* Note Body: Editor or Preview */}
-      <div style={{ flex: 1, padding: '8px 24px 20px 24px', overflowY: 'auto' }}>
-        {isPreview ? (
+      {/* Quick Markdown Formatting Helper Toolbar (in edit or split modes) */}
+      {(viewMode === 'edit' || viewMode === 'split') && (
+        <div
+          style={{
+            padding: '4px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            backgroundColor: 'rgba(0, 0, 0, 0.15)',
+            userSelect: 'none',
+          }}
+        >
+          <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginRight: '4px', fontWeight: 600 }}>
+            Insert:
+          </span>
+          <button
+            onClick={() => insertFormatting('## ', '', 'Section Heading')}
+            className="btn-icon"
+            style={{ width: '26px', height: '26px' }}
+            title="Heading 2 (## )"
+          >
+            <Heading size={13} />
+          </button>
+          <button
+            onClick={() => insertFormatting('**', '**', 'bold text')}
+            className="btn-icon"
+            style={{ width: '26px', height: '26px' }}
+            title="Bold (**text**)"
+          >
+            <Bold size={13} />
+          </button>
+          <button
+            onClick={() => insertFormatting('*', '*', 'italic text')}
+            className="btn-icon"
+            style={{ width: '26px', height: '26px' }}
+            title="Italic (*text*)"
+          >
+            <Italic size={13} />
+          </button>
+          <button
+            onClick={() => insertFormatting('`', '`', 'code')}
+            className="btn-icon"
+            style={{ width: '26px', height: '26px' }}
+            title="Inline Code (`code`)"
+          >
+            <Code size={13} />
+          </button>
+          <button
+            onClick={() =>
+              insertFormatting(
+                '```typescript\n// Syntax highlighted code block\nconst calculateScore = (items: number[]): number => {\n  return items.reduce((sum, item) => sum + item, 0);\n};\n```\n',
+                '',
+                ''
+              )
+            }
+            className="btn-icon"
+            style={{ width: '26px', height: '26px', color: 'var(--accent-cyan)' }}
+            title="Syntax Highlighted Code Block (```lang)"
+          >
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700 }}>{'</>'}</span>
+          </button>
+          <button
+            onClick={() => insertFormatting('- [ ] ', '', 'Task item')}
+            className="btn-icon"
+            style={{ width: '26px', height: '26px' }}
+            title="Task List Item (- [ ])"
+          >
+            <ListTodo size={13} />
+          </button>
+          <button
+            onClick={() => insertFormatting('- ', '', 'List item')}
+            className="btn-icon"
+            style={{ width: '26px', height: '26px' }}
+            title="Bullet List Item (- )"
+          >
+            <List size={13} />
+          </button>
+          <button
+            onClick={() => insertFormatting('> ', '', 'Important quote note')}
+            className="btn-icon"
+            style={{ width: '26px', height: '26px' }}
+            title="Blockquote (> )"
+          >
+            <Quote size={13} />
+          </button>
+          <button
+            onClick={() =>
+              insertFormatting(
+                '| Feature | Status | Priority |\n| :--- | :---: | ---: |\n| Native Markdown | Done | High |\n| Syntax Highlighting | Done | High |\n',
+                '',
+                ''
+              )
+            }
+            className="btn-icon"
+            style={{ width: '26px', height: '26px' }}
+            title="Markdown Table"
+          >
+            <Table size={13} />
+          </button>
+          <button
+            onClick={() => insertFormatting('[', '](https://example.com)', 'Link description')}
+            className="btn-icon"
+            style={{ width: '26px', height: '26px' }}
+            title="Hyperlink ([text](url))"
+          >
+            <LinkIcon size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* Note Body: Single Editor, Split View, or Native Rendered Markdown */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Editor Pane (shown in 'edit' or 'split' mode) */}
+        {(viewMode === 'edit' || viewMode === 'split') && (
           <div
             style={{
-              lineHeight: '1.6',
-              fontSize: '14px',
-              color: 'var(--text-primary)',
+              flex: viewMode === 'split' ? '0 0 50%' : '1',
+              padding: '12px 24px 20px 24px',
+              overflowY: 'auto',
+              borderRight: viewMode === 'split' ? '1px solid var(--border-subtle)' : 'none',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            {renderedMarkdown}
+            <textarea
+              ref={textareaRef}
+              value={note.content}
+              onChange={handleContentChange}
+              placeholder="Write markdown content here... (Supports headers, syntax-highlighted code blocks ```lang, task lists - [ ], tables, quotes, and links)"
+              style={{
+                width: '100%',
+                flex: 1,
+                backgroundColor: 'transparent',
+                border: 'none',
+                outline: 'none',
+                resize: 'none',
+                color: 'var(--text-primary)',
+                fontSize: '14px',
+                lineHeight: '1.7',
+                fontFamily: 'var(--font-mono)',
+              }}
+            />
           </div>
-        ) : (
-          <textarea
-            value={note.content}
-            onChange={handleContentChange}
-            placeholder="Write markdown content here... (Supports headers, bullet lists, checklist items, and code snippets)"
+        )}
+
+        {/* Native Markdown Preview Pane (shown in 'split' or 'preview' mode) */}
+        {(viewMode === 'preview' || viewMode === 'split') && (
+          <div
             style={{
-              width: '100%',
-              height: '100%',
-              backgroundColor: 'transparent',
-              border: 'none',
-              outline: 'none',
-              resize: 'none',
-              color: 'var(--text-primary)',
-              fontSize: '14px',
-              lineHeight: '1.7',
-              fontFamily: 'var(--font-mono)',
+              flex: viewMode === 'split' ? '0 0 50%' : '1',
+              padding: '14px 24px 24px 24px',
+              overflowY: 'auto',
+              backgroundColor: viewMode === 'split' ? 'rgba(0, 0, 0, 0.15)' : 'transparent',
             }}
-          />
+          >
+            <MarkdownRenderer content={note.content} onToggleTask={handleToggleTask} />
+          </div>
         )}
       </div>
 
@@ -722,6 +911,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <span>{wordCount} words</span>
           <span>{charCount} characters</span>
+          <span>
+            Mode:{' '}
+            <strong style={{ color: viewMode === 'edit' ? 'var(--accent-cyan)' : viewMode === 'split' ? '#c4b5fd' : 'var(--accent-emerald)' }}>
+              {viewMode.toUpperCase()}
+            </strong>
+          </span>
           <span>Last modified: {new Date(note.updatedAt).toLocaleTimeString()}</span>
         </div>
 

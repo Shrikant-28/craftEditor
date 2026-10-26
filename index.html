@@ -20,6 +20,12 @@
 
       gtag('config', 'G-GRG5WV6M9W');
     </script>
+    <script>
+      try {
+        var t = localStorage.getItem('aura_notes_theme');
+        if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

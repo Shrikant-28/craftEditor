@@ -4,13 +4,11 @@ import {
   Pin,
   Tag,
   Folder,
-  Plus,
-  Layers,
-  Database,
+  Plus, Database,
   CheckCircle2,
   Check,
   X,
-  Mic,
+  Mic
 } from 'lucide-react';
 import { Note, SearchFilter } from '../types/note';
 

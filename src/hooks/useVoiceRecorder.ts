@@ -358,6 +358,11 @@ export function useVoiceRecorder(): UseVoiceRecorderResult {
       };
 
       try {
+        if (recorder.state === 'recording') {
+          try {
+            recorder.requestData();
+          } catch {}
+        }
         recorder.stop();
       } catch (err) {
         console.error('Failed to stop media recorder:', err);

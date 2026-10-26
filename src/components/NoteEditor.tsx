@@ -432,7 +432,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
                   }}
                 >
                   {categories.map((cat) => (
-                    <option key={cat} value={cat} style={{ backgroundColor: '#111827' }}>
+                    <option key={cat} value={cat} style={{ backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)' }}>
                       {cat}
                     </option>
                   ))}
@@ -594,7 +594,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
                 border: 'none',
                 cursor: 'pointer',
                 backgroundColor: viewMode === 'split' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
-                color: viewMode === 'split' ? '#c4b5fd' : 'var(--text-tertiary)',
+                color: viewMode === 'split' ? 'var(--accent-violet)' : 'var(--text-tertiary)',
                 transition: 'all 0.15s ease',
               }}
               title="Side-by-side Live Editor & Markdown Preview"
@@ -900,7 +900,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
         style={{
           padding: '8px 20px',
           borderTop: '1px solid var(--border-subtle)',
-          backgroundColor: '#070a12',
+          backgroundColor: 'var(--bg-titlebar, #070a12)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -913,7 +913,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
           <span>{charCount} characters</span>
           <span>
             Mode:{' '}
-            <strong style={{ color: viewMode === 'edit' ? 'var(--accent-cyan)' : viewMode === 'split' ? '#c4b5fd' : 'var(--accent-emerald)' }}>
+            <strong style={{ color: viewMode === 'edit' ? 'var(--accent-cyan)' : viewMode === 'split' ? 'var(--accent-violet)' : 'var(--accent-emerald)' }}>
               {viewMode.toUpperCase()}
             </strong>
           </span>

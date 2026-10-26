@@ -32,7 +32,42 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
   const [hoverBarIndex, setHoverBarIndex] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
   const copyTimeoutRef = useRef<number | null>(null);
+
+  // Convert base64 data URL to standard Blob Object URL for smooth, streamable HTML5 playback
+  const audioSrc = useMemo(() => {
+    if (!recording.audioData) return '';
+    if (recording.audioData.startsWith('blob:')) return recording.audioData;
+    if (recording.audioData.startsWith('data:')) {
+      try {
+        const parts = recording.audioData.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'audio/webm';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        return URL.createObjectURL(blob);
+      } catch (err) {
+        console.warn('Falling back to raw data URI:', err);
+        return recording.audioData;
+      }
+    }
+    return recording.audioData;
+  }, [recording.audioData]);
+
+  // Clean up object URL when source changes or component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioSrc && audioSrc.startsWith('blob:') && audioSrc !== recording.audioData) {
+        URL.revokeObjectURL(audioSrc);
+      }
+    };
+  }, [audioSrc, recording.audioData]);
 
   // Memoize waveform so it doesn't recalculate on every timeupdate tick
   const waveform = useMemo(() => {
@@ -41,7 +76,54 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
       : generateWaveform(36, recording.id);
   }, [recording.waveform, recording.id]);
 
-  // Sync audio element events and cleanup native audio decoders on unmount
+  const safePlay = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    // Reset to beginning if at or near the end
+    if (audio.ended || (duration > 0 && Math.abs(audio.currentTime - duration) < 0.2)) {
+      audio.currentTime = 0;
+      setCurrentTime(0);
+    }
+
+    try {
+      const promise = audio.play();
+      if (promise !== undefined) {
+        playPromiseRef.current = promise;
+        await promise;
+        playPromiseRef.current = null;
+        setIsPlaying(true);
+      }
+    } catch (err: any) {
+      playPromiseRef.current = null;
+      if (err?.name === 'AbortError' || err?.message?.includes('interrupted')) {
+        return;
+      }
+      console.warn('Audio playback notice:', err);
+      setIsPlaying(false);
+    }
+  };
+
+  const safePause = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (playPromiseRef.current) {
+      playPromiseRef.current
+        .then(() => {
+          audio.pause();
+          setIsPlaying(false);
+        })
+        .catch(() => {
+          setIsPlaying(false);
+        });
+    } else {
+      audio.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  // Sync audio element events and cleanup on unmount
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -63,12 +145,17 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
 
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
+    const handleError = () => {
+      console.warn('Audio playback decode error:', audio.error);
+      setIsPlaying(false);
+    };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -76,12 +163,19 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('error', handleError);
 
-      // Explicitly tear down audio pipeline to prevent Chromium media decoder memory leaks
+      // Safely pause on unmount without mutating DOM src attribute
       try {
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
+        if (playPromiseRef.current) {
+          playPromiseRef.current
+            .then(() => {
+              audio.pause();
+            })
+            .catch(() => {});
+        } else {
+          audio.pause();
+        }
       } catch {}
     };
   }, []);
@@ -96,13 +190,10 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
   }, []);
 
   const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
     if (isPlaying) {
-      audio.pause();
+      safePause();
     } else {
-      audio.play().catch((err) => console.error('Audio playback failed:', err));
+      safePlay();
     }
   };
 
@@ -116,7 +207,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
     setCurrentTime(targetTime);
 
     if (!isPlaying) {
-      audio.play().catch(() => {});
+      safePlay();
     }
   };
 
@@ -167,7 +258,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
       }}
       className="glass-card"
     >
-      <audio ref={audioRef} src={recording.audioData} preload="metadata" />
+      <audio ref={audioRef} src={audioSrc} preload="auto" />
 
       {/* Top Header: Voice Clip Name, Date, Actions */}
       <div

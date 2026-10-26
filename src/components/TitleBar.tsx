@@ -1,19 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { Minus, Square, X, Laptop, Cpu, Sparkles, BookOpen } from 'lucide-react';
+import { Minus, Square, X, Sparkles, Sun, Moon } from 'lucide-react';
 
 interface TitleBarProps {
-  onOpenSystemInfo: () => void;
-  onOpenSearchEvidence: () => void;
-  totalNotes: number;
+  totalNotes?: number;
+  theme?: 'dark' | 'light';
+  onToggleTheme?: () => void;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
-  onOpenSystemInfo,
-  onOpenSearchEvidence,
   totalNotes,
+  theme: externalTheme,
+  onToggleTheme,
 }) => {
   const [isElectron, setIsElectron] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+
+  const [internalTheme, setInternalTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('aura_notes_theme');
+      return saved === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const currentTheme = externalTheme || internalTheme;
+
+  const handleToggle = () => {
+    if (onToggleTheme) {
+      onToggleTheme();
+    } else {
+      const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      setInternalTheme(nextTheme);
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      try {
+        localStorage.setItem('aura_notes_theme', nextTheme);
+      } catch {}
+    }
+  };
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -35,13 +59,14 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     <div
       style={{
         height: '42px',
-        backgroundColor: '#070a12',
+        backgroundColor: 'var(--bg-titlebar, #070a12)',
         borderBottom: '1px solid var(--border-subtle)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 12px',
         userSelect: 'none',
+        transition: 'background-color 0.2s ease',
       }}
       className="titlebar-draggable"
     >
@@ -62,7 +87,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         >
           <Sparkles size={14} />
         </div>
-        <span style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em', color: '#f3f4f6' }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em', color: 'var(--text-primary)' }}>
           Aura Notes
         </span>
         <span
@@ -79,54 +104,98 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         </span>
       </div>
 
-      {/* Center: System Status & Evidence Actions */}
+      {/* Right: Theme Switcher & Window Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="titlebar-no-drag">
-        <button
-          onClick={onOpenSearchEvidence}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '12px',
-            padding: '4px 10px',
-            borderRadius: '6px',
-            backgroundColor: 'rgba(139, 92, 246, 0.15)',
-            color: '#c4b5fd',
-            border: '1px solid rgba(139, 92, 246, 0.3)',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
+        {/* Light or Dark Mode Switcher */}
+        <div
+          onClick={handleToggle}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleToggle();
+            }
           }}
-          title="See how search works and view evidence"
-        >
-          <BookOpen size={13} />
-          <span>Search Engine Architecture & Evidence</span>
-        </button>
-
-        <button
-          onClick={onOpenSystemInfo}
+          title={currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label={currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            fontSize: '12px',
-            padding: '4px 10px',
-            borderRadius: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            color: 'var(--text-secondary)',
+            backgroundColor: currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)',
+            borderRadius: '20px',
+            padding: '2px 3px',
             border: '1px solid var(--border-subtle)',
             cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            gap: '2px',
           }}
-          title="View Desktop Diagnostics & Storage"
         >
-          <Cpu size={13} />
-          <span>System Info</span>
-        </button>
-      </div>
+          {/* Light button indicator */}
+          <div
+            onClick={(e) => {
+              if (currentTheme !== 'light') {
+                e.stopPropagation();
+                handleToggle();
+              }
+            }}
+            style={{
+              padding: '3px 7px',
+              borderRadius: '14px',
+              backgroundColor: currentTheme === 'light' ? 'var(--accent-amber)' : 'transparent',
+              color: currentTheme === 'light' ? '#ffffff' : 'var(--text-tertiary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '11px',
+              fontWeight: 600,
+              boxShadow: currentTheme === 'light' ? '0 1px 6px rgba(217, 119, 6, 0.35)' : 'none',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            <Sun size={12} />
+            {currentTheme === 'light' && <span>Light</span>}
+          </div>
 
-      {/* Right: Window Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} className="titlebar-no-drag">
+          {/* Dark button indicator */}
+          <div
+            onClick={(e) => {
+              if (currentTheme !== 'dark') {
+                e.stopPropagation();
+                handleToggle();
+              }
+            }}
+            style={{
+              padding: '3px 7px',
+              borderRadius: '14px',
+              backgroundColor: currentTheme === 'dark' ? 'var(--accent-violet)' : 'transparent',
+              color: currentTheme === 'dark' ? '#ffffff' : 'var(--text-tertiary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '11px',
+              fontWeight: 600,
+              boxShadow: currentTheme === 'dark' ? '0 1px 6px rgba(139, 92, 246, 0.35)' : 'none',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            <Moon size={12} />
+            {currentTheme === 'dark' && <span>Dark</span>}
+          </div>
+        </div>
+
+        {/* Window Controls (Electron) */}
         {isElectron && (
-          <>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              marginLeft: '4px',
+              borderLeft: '1px solid var(--border-subtle)',
+              paddingLeft: '8px',
+            }}
+          >
             <button
               onClick={handleMinimize}
               className="btn-icon"
@@ -151,7 +220,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             >
               <X size={14} />
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>

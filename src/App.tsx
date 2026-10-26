@@ -4,8 +4,6 @@ import { Sidebar } from './components/Sidebar';
 import { SearchBar } from './components/SearchBar';
 import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
-import { SearchEvidenceModal } from './components/SearchEvidenceModal';
-import { SystemInfoModal } from './components/SystemInfoModal';
 import { Note, SearchFilter } from './types/note';
 import { INITIAL_NOTES } from './data/initialNotes';
 import { executeSearch } from './utils/searchEngine';
@@ -17,9 +15,26 @@ export const App: React.FC = () => {
   const [filter, setFilter] = useState<SearchFilter>({ query: '' });
   const [isDiskSynced, setIsDiskSynced] = useState<boolean>(true);
 
-  // Modals state
-  const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
-  const [isSystemModalOpen, setIsSystemModalOpen] = useState(false);
+  // Theme state (dark / light mode)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('aura_notes_theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch {}
+    return 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('aura_notes_theme', theme);
+    } catch {}
+  }, [theme]);
+
+  const handleToggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
   const [openRecorderTrigger, setOpenRecorderTrigger] = useState<number>(0);
 
   // 1. Initial Load from Local SQLite Database (aura_notes.sqlite)
@@ -211,9 +226,9 @@ export const App: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       {/* 1. Desktop Window TitleBar */}
       <TitleBar
-        onOpenSystemInfo={() => setIsSystemModalOpen(true)}
-        onOpenSearchEvidence={() => setIsEvidenceModalOpen(true)}
         totalNotes={notes.length}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* 2. Main Workspace Body */}
@@ -302,7 +317,7 @@ export const App: React.FC = () => {
                 <Database size={32} />
               </div>
 
-              <div style={{ fontSize: '18px', fontWeight: 600, color: '#f3f4f6', textAlign: 'center' }}>
+              <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'center' }}>
                 Local SQLite Database Connected
               </div>
 
@@ -335,15 +350,6 @@ export const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Modals */}
-      <SearchEvidenceModal
-        isOpen={isEvidenceModalOpen}
-        onClose={() => setIsEvidenceModalOpen(false)}
-      />
-      <SystemInfoModal
-        isOpen={isSystemModalOpen}
-        onClose={() => setIsSystemModalOpen(false)}
-      />
     </div>
   );
 };

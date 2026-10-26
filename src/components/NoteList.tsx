@@ -69,7 +69,7 @@ const NoteListItem: React.FC<NoteListItemProps> = React.memo(({
           style={{
             fontSize: '14px',
             fontWeight: 600,
-            color: isSelected ? '#ffffff' : 'var(--text-primary)',
+            color: 'var(--text-primary)',
             lineHeight: '1.3',
           }}
           dangerouslySetInnerHTML={{ __html: highlightedTitle }}
@@ -120,7 +120,7 @@ const NoteListItem: React.FC<NoteListItemProps> = React.memo(({
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <span
             style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+              backgroundColor: 'var(--border-subtle)',
               padding: '2px 6px',
               borderRadius: '4px',
               color: 'var(--text-secondary)',
@@ -211,7 +211,7 @@ export const NoteList: React.FC<NoteListProps> = React.memo(({
             >
               <FileText size={24} />
             </div>
-            <p style={{ fontSize: '14px', fontWeight: 600, color: '#f3f4f6', marginBottom: '6px' }}>
+            <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
               No notes in database
             </p>
             <p style={{ fontSize: '12px', maxWidth: '220px', marginBottom: '16px', lineHeight: '1.5', color: 'var(--text-secondary)' }}>

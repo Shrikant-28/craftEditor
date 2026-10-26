@@ -113,9 +113,10 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             width: '100%',
             justifyContent: 'center',
             height: '34px',
-            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2))',
-            border: '1px solid rgba(139, 92, 246, 0.4)',
-            color: '#e0e7ff',
+            background: 'rgba(139, 92, 246, 0.12)',
+            border: '1px solid rgba(139, 92, 246, 0.35)',
+            color: 'var(--accent-violet)',
+            fontWeight: 600,
             boxShadow: '0 2px 8px rgba(139, 92, 246, 0.15)',
           }}
           title="Create a new voice note and start recording"
@@ -264,12 +265,12 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
                 placeholder="Category name..."
                 style={{
                   flex: 1,
-                  backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                  backgroundColor: 'var(--bg-input)',
                   border: '1px solid var(--accent-cyan)',
                   borderRadius: 'var(--radius-sm)',
                   padding: '4px 8px',
                   fontSize: '12px',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   outline: 'none',
                 }}
               />
@@ -311,7 +312,8 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
                   borderRadius: 'var(--radius-sm)',
                   cursor: 'pointer',
                   backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
-                  color: isSelected ? '#c4b5fd' : 'var(--text-secondary)',
+                  color: isSelected ? 'var(--accent-violet)' : 'var(--text-secondary)',
+                  fontWeight: isSelected ? 600 : 400,
                   transition: 'background 0.15s ease',
                   fontSize: '13px',
                 }}
@@ -371,7 +373,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
         style={{
           padding: '12px 14px',
           borderTop: '1px solid var(--border-subtle)',
-          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+          backgroundColor: 'var(--bg-sidebar)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',

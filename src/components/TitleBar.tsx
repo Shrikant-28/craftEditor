@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Minus, Square, X, Sparkles, Sun, Moon } from 'lucide-react';
+import { Minus, Square, X, Sun, Moon } from 'lucide-react';
 
 interface TitleBarProps {
   totalNotes?: number;
@@ -69,24 +69,21 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         transition: 'background-color 0.2s ease',
       }}
       className="titlebar-draggable"
+      onDoubleClick={handleMaximize}
     >
       {/* Left: App Identity */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} className="titlebar-no-drag">
-        <div
+        <img
+          src="./note.jpg"
+          alt="Aura Notes App Icon"
           style={{
             width: '24px',
             height: '24px',
             borderRadius: '6px',
-            background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            boxShadow: '0 0 12px rgba(6, 182, 212, 0.4)',
+            objectFit: 'cover',
+            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
           }}
-        >
-          <Sparkles size={14} />
-        </div>
+        />
         <span style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em', color: 'var(--text-primary)' }}>
           Aura Notes
         </span>
@@ -143,7 +140,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
               padding: '3px 7px',
               borderRadius: '14px',
               backgroundColor: currentTheme === 'light' ? 'var(--accent-amber)' : 'transparent',
-              color: currentTheme === 'light' ? '#ffffff' : 'var(--text-tertiary)',
+              color: currentTheme === 'light' ? '#ffffff' : 'var(--text-secondary)',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
@@ -169,7 +166,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
               padding: '3px 7px',
               borderRadius: '14px',
               backgroundColor: currentTheme === 'dark' ? 'var(--accent-violet)' : 'transparent',
-              color: currentTheme === 'dark' ? '#ffffff' : 'var(--text-tertiary)',
+              color: currentTheme === 'dark' ? '#ffffff' : 'var(--text-secondary)',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',

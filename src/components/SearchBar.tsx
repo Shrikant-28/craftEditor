@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Search, X, Zap, HelpCircle } from 'lucide-react';
+import { Search, X, Zap } from 'lucide-react';
 import { SearchFilter } from '../types/note';
 
 interface SearchBarProps {
@@ -67,7 +67,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           type="text"
           value={filter.query}
           onChange={(e) => onFilterChange({ query: e.target.value })}
-          placeholder="Search notes, tags (#electron), exact phrases (&quot;...&quot;), is:pinned..."
+          placeholder="Search notes..."
           style={{
             flex: 1,
             backgroundColor: 'transparent',
@@ -96,7 +96,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           style={{
             fontSize: '10px',
             padding: '2px 5px',
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backgroundColor: 'var(--border-subtle)',
             border: '1px solid var(--border-subtle)',
             borderRadius: '4px',
             color: 'var(--text-tertiary)',
@@ -105,49 +105,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         >
           Ctrl+K
         </kbd>
-      </div>
-
-      {/* Query Stats & Syntax Helper */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginTop: '8px',
-          fontSize: '11px',
-          color: 'var(--text-tertiary)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Zap size={12} style={{ color: 'var(--accent-cyan)' }} />
-          <span>
-            {resultCount} {resultCount === 1 ? 'note' : 'notes'} found
-          </span>
-          <span style={{ opacity: 0.6 }}>•</span>
-          <span style={{ color: 'var(--text-secondary)' }}>{durationMs}ms</span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span>Try:</span>
-          <span
-            onClick={() => insertSyntax('tag:architecture')}
-            style={{ cursor: 'pointer', color: '#93c5fd', textDecoration: 'underline' }}
-          >
-            tag:architecture
-          </span>
-          <span
-            onClick={() => insertSyntax('is:pinned')}
-            style={{ cursor: 'pointer', color: '#fbbf24', textDecoration: 'underline' }}
-          >
-            is:pinned
-          </span>
-          <span
-            onClick={() => insertSyntax('"search algorithms"')}
-            style={{ cursor: 'pointer', color: '#a7f3d0', textDecoration: 'underline' }}
-          >
-            "exact phrase"
-          </span>
-        </div>
       </div>
     </div>
   );

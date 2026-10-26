@@ -422,7 +422,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
                   value={note.category}
                   onChange={handleCategoryChange}
                   style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    backgroundColor: 'var(--bg-input)',
                     border: '1px solid var(--border-subtle)',
                     color: 'var(--text-primary)',
                     borderRadius: 'var(--radius-sm)',
@@ -742,8 +742,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-            backgroundColor: 'rgba(0, 0, 0, 0.15)',
+            borderBottom: '1px solid var(--border-subtle)',
+            backgroundColor: 'var(--bg-card-hover)',
             userSelect: 'none',
           }}
         >
@@ -887,7 +887,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
               flex: viewMode === 'split' ? '0 0 50%' : '1',
               padding: '14px 24px 24px 24px',
               overflowY: 'auto',
-              backgroundColor: viewMode === 'split' ? 'rgba(0, 0, 0, 0.15)' : 'transparent',
+              backgroundColor: viewMode === 'split' ? 'var(--bg-card-hover)' : 'transparent',
             }}
           >
             <MarkdownRenderer content={note.content} onToggleTask={handleToggleTask} />
@@ -900,7 +900,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
         style={{
           padding: '8px 20px',
           borderTop: '1px solid var(--border-subtle)',
-          backgroundColor: 'var(--bg-titlebar, #070a12)',
+          backgroundColor: 'var(--bg-titlebar)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',

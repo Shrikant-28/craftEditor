@@ -250,7 +250,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
     <div
       style={{
         borderRadius: 'var(--radius-md)',
-        backgroundColor: 'rgba(17, 24, 39, 0.75)',
+        backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',
         padding: '14px 16px',
         marginBottom: '12px',
@@ -280,7 +280,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
               transition: 'all 0.2s ease',
             }}
           />
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#f3f4f6' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
             Voice Memo
           </span>
           <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
@@ -467,7 +467,7 @@ export const VoicePlayer: React.FC<VoicePlayerProps> = React.memo(({
           {isTranscriptOpen && (
             <div
               style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                backgroundColor: 'var(--bg-card-hover)',
                 borderRadius: 'var(--radius-sm)',
                 padding: '10px 12px',
                 fontSize: '12px',

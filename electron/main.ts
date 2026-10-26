@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import {
@@ -19,13 +19,18 @@ let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 function createWindow() {
+  // Remove default File, Edit, View, Window, Help menus completely
+  Menu.setApplicationMenu(null);
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 840,
     minWidth: 960,
     minHeight: 640,
-    frame: true, // Native titlebar or custom styling
+    frame: false, // Frameless window to use the custom Aura Notes TitleBar
+    autoHideMenuBar: true,
     backgroundColor: '#0b0f19',
+    icon: path.join(__dirname, '../public/note.jpg'),
     show: false, // Don't show until ready-to-show to prevent white flash
     title: 'Aura Notes Desktop',
     webPreferences: {
@@ -35,6 +40,8 @@ function createWindow() {
       sandbox: false,
     },
   });
+
+  mainWindow.setMenu(null);
 
   // Enable microphone permissions for voice note recording
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {

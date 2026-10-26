@@ -2,13 +2,11 @@ import React, { useEffect } from 'react';
 import {
   Mic,
   Pause,
-  Play,
-  Square,
-  Check,
+  Play, Check,
   X,
   Trash2,
   AlertCircle,
-  Sparkles,
+  Sparkles
 } from 'lucide-react';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { VoiceRecording } from '../types/note';

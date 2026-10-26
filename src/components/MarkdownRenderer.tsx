@@ -1,19 +1,11 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Copy,
-  Check,
-  Code2,
-  ExternalLink,
+  Check, ExternalLink,
   CheckSquare,
-  Square,
-  AlertCircle,
-  Info,
-  Lightbulb,
-  AlertTriangle,
-  Flame,
-  FileText,
+  Square
 } from 'lucide-react';
-import { tokenizeCode, TOKEN_COLORS, getLanguageMetadata, normalizeLanguage } from '../utils/syntaxHighlighter';
+import { tokenizeCode, TOKEN_COLORS, getLanguageMetadata } from '../utils/syntaxHighlighter';
 
 interface MarkdownRendererProps {
   content: string;

@@ -2,7 +2,7 @@
 
 A modern desktop notes and knowledge application built with **Electron 34**, **React 19**, **Vite 6**, and **TypeScript**, featuring an advanced in-memory search engine and a glassmorphic dark-mode UI.
 
-![Aura Notes — Desktop App Overview](screenshots/app-overview.png)
+![Aura Notes — Desktop App Overview](screenshots/1.png)
 
 ---
 

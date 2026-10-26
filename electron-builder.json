@@ -3,6 +3,7 @@
   "appId": "com.auranotes.desktop",
   "productName": "Aura Notes",
   "copyright": "Copyright © 2026 Aura Notes",
+  "compression": "maximum",
   "directories": {
     "output": "release",
     "buildResources": "public"
@@ -10,17 +11,12 @@
   "files": [
     "dist/**/*",
     "dist-electron/**/*",
-    "package.json",
-    "public/**/*"
+    "package.json"
   ],
   "extraResources": [
     {
       "from": "dist-electron/sql-wasm.wasm",
       "to": "sql-wasm.wasm"
-    },
-    {
-      "from": "dist-electron/sql-wasm.wasm",
-      "to": "dist-electron/sql-wasm.wasm"
     }
   ],
   "asar": true,
@@ -45,7 +41,8 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "Aura Notes",
-    "uninstallDisplayName": "Aura Notes"
+    "uninstallDisplayName": "Aura Notes",
+    "differentialPackage": false
   },
   "portable": {
     "artifactName": "${productName}-Portable-${version}.${ext}"

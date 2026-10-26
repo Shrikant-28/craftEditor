@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
+  ArrowLeft,
   Pin,
   Trash2,
   Download,
@@ -37,6 +38,8 @@ interface NoteEditorProps {
   onAddCategory?: (name: string) => string | void;
   openRecorderTrigger?: number;
   onOpenMeetingPipeline?: () => void;
+  onBack?: () => void;
+  isMobile?: boolean;
 }
 
 // Zero-allocation word counter to avoid allocating huge string arrays with split()
@@ -63,6 +66,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
   onAddCategory,
   openRecorderTrigger,
   onOpenMeetingPipeline,
+  onBack,
+  isMobile,
 }) => {
   const [viewMode, setViewMode] = useState<'edit' | 'split' | 'preview'>('edit');
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -477,6 +482,26 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
       >
         {/* Left: Category & Tags Metadata */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="btn btn-ghost"
+              style={{
+                fontSize: '12px',
+                padding: '4px 8px',
+                gap: '4px',
+                color: 'var(--accent-cyan)',
+                fontWeight: 600,
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+                backgroundColor: 'rgba(6, 182, 212, 0.08)',
+              }}
+              title="Back to notes list"
+            >
+              <ArrowLeft size={14} />
+              <span>Notes</span>
+            </button>
+          )}
+
           {/* Category Dropdown & Quick Add */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Folder size={14} style={{ color: 'var(--accent-violet)' }} />
@@ -633,7 +658,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
                 ? 'Close Mic'
                 : hasVoiceRecordings
                 ? `Voice (${note.voiceRecordings!.length})`
-                : 'Voice Note'}
+                : isMobile ? 'Voice' : 'Voice Note'}
             </span>
           </button>
 
@@ -681,7 +706,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
               title="Local Meeting Pipeline: Transcribe → Summarize → Extract Actions → Suggest Follow-up"
             >
               <ListTodo size={14} style={{ color: 'var(--accent-cyan)' }} />
-              <span>Meeting Pipeline</span>
+              <span>{isMobile ? 'Meeting' : 'Meeting Pipeline'}</span>
             </button>
           )}
 
@@ -718,6 +743,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
               <span>Edit</span>
             </button>
 
+            {!isMobile && (
             <button
               onClick={() => setViewMode('split')}
               style={{
@@ -739,6 +765,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
               <Columns2 size={13} />
               <span>Split</span>
             </button>
+          )}
 
             <button
               onClick={() => setViewMode('preview')}
@@ -787,7 +814,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
             title="Export note to Markdown (.md) file on disk"
           >
             <Download size={14} />
-            <span>{exportStatus || 'Export .md'}</span>
+            <span>{exportStatus || (isMobile ? 'Export' : 'Export .md')}</span>
           </button>
 
           {/* Delete Note */}

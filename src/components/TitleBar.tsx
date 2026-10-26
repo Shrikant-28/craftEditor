@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Minus, Square, X, Sun, Moon } from 'lucide-react';
+import { Minus, Square, X, Sun, Moon, PanelLeft } from 'lucide-react';
 
 interface TitleBarProps {
   totalNotes?: number;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+  isMobile?: boolean;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
   totalNotes,
   theme: externalTheme,
   onToggleTheme,
+  isSidebarOpen,
+  onToggleSidebar,
+  isMobile,
 }) => {
   const [isElectron, setIsElectron] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -72,7 +78,24 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       onDoubleClick={handleMaximize}
     >
       {/* Left: App Identity */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} className="titlebar-no-drag">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="titlebar-no-drag">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="btn-icon"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              color: isSidebarOpen ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+              backgroundColor: isSidebarOpen ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
+            }}
+            title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            aria-label="Toggle navigation sidebar"
+          >
+            <PanelLeft size={16} />
+          </button>
+        )}
         <img
           src="./note.jpg"
           alt="Aura Notes App Icon"
@@ -87,18 +110,20 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         <span style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.02em', color: 'var(--text-primary)' }}>
           Aura Notes
         </span>
-        <span
-          style={{
-            fontSize: '11px',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            backgroundColor: isElectron ? 'rgba(6, 182, 212, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-            color: isElectron ? 'var(--accent-cyan)' : 'var(--accent-amber)',
-            fontWeight: 500,
-          }}
-        >
-          {isElectron ? 'Desktop (Electron)' : 'Web Preview'}
-        </span>
+        {!isMobile && (
+          <span
+            style={{
+              fontSize: '11px',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              backgroundColor: isElectron ? 'rgba(6, 182, 212, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+              color: isElectron ? 'var(--accent-cyan)' : 'var(--accent-amber)',
+              fontWeight: 500,
+            }}
+          >
+            {isElectron ? 'Desktop (Electron)' : 'Web Preview'}
+          </span>
+        )}
       </div>
 
       {/* Right: Theme Switcher & Window Controls */}

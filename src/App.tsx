@@ -6,12 +6,11 @@ import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
 import { MeetingPipelineModal } from './components/MeetingPipelineModal';
 import { Note, SearchFilter } from './types/note';
-import { INITIAL_NOTES } from './data/initialNotes';
 import { executeSearch } from './utils/searchEngine';
 import { Database, Plus, Mic } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [notes, setNotes] = useState<Note[]>(INITIAL_NOTES);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [filter, setFilter] = useState<SearchFilter>({ query: '' });
   const [isDiskSynced, setIsDiskSynced] = useState<boolean>(true);
@@ -34,6 +33,31 @@ export const App: React.FC = () => {
 
   const handleToggleTheme = useCallback(() => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
+  // Responsive layout state (Desktop >= 1024px, Tablet 768px-1023px, Mobile < 768px)
+  const [windowWidth, setWindowWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1200));
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+
+  const [mobileView, setMobileView] = useState<'list' | 'editor'>('list');
+
+  const handleToggleSidebar = useCallback(() => {
+    setIsSidebarOpen((prev) => !prev);
   }, []);
 
   const [openRecorderTrigger, setOpenRecorderTrigger] = useState<number>(0);
@@ -263,127 +287,177 @@ export const App: React.FC = () => {
         totalNotes={notes.length}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={handleToggleSidebar}
+        isMobile={isMobile}
       />
 
       {/* 2. Main Workspace Body */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Left Sidebar */}
-        <Sidebar
-          notes={notes}
-          filter={filter}
-          onFilterChange={handleFilterChange}
-          onCreateNote={handleCreateNote}
-          onCreateVoiceNote={handleCreateVoiceNote}
-          categories={categories}
-          allTags={allTags}
-          isDiskSynced={isDiskSynced}
-          onAddCategory={handleAddCategory}
-          onOpenMeetingPipeline={() => setIsMeetingPipelineOpen(true)}
-        />
-
-        {/* Middle Column: Search + Note List Cards */}
-        <div
-          style={{
-            width: '340px',
-            borderRight: '1px solid var(--border-subtle)',
-            backgroundColor: 'var(--bg-main)',
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-          }}
-        >
-          <SearchBar
+      <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
+        {/* Desktop Fixed Sidebar */}
+        {!isMobile && !isTablet && isSidebarOpen && (
+          <Sidebar
+            notes={notes}
             filter={filter}
             onFilterChange={handleFilterChange}
-            resultCount={matches.length}
-            durationMs={durationMs}
-          />
-
-          <NoteList
-            matches={matches}
-            selectedNoteId={selectedNoteId}
-            onSelectNote={setSelectedNoteId}
-            onTogglePin={handleTogglePin}
-            onClearFilters={handleClearFilters}
-            totalNotes={notes.length}
             onCreateNote={handleCreateNote}
+            onCreateVoiceNote={handleCreateVoiceNote}
+            categories={categories}
+            allTags={allTags}
+            isDiskSynced={isDiskSynced}
+            onAddCategory={handleAddCategory}
+            onOpenMeetingPipeline={() => setIsMeetingPipelineOpen(true)}
           />
-        </div>
+        )}
+
+        {/* Mobile & Tablet Overlay Drawer */}
+        {(isMobile || isTablet) && isSidebarOpen && (
+          <>
+            <div
+              className="sidebar-overlay"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+            <div className="sidebar-drawer">
+              <Sidebar
+                notes={notes}
+                filter={filter}
+                onFilterChange={(update) => {
+                  handleFilterChange(update);
+                  setIsSidebarOpen(false);
+                  if (isMobile) setMobileView('list');
+                }}
+                onCreateNote={handleCreateNote}
+                onCreateVoiceNote={handleCreateVoiceNote}
+                categories={categories}
+                allTags={allTags}
+                isDiskSynced={isDiskSynced}
+                onAddCategory={handleAddCategory}
+                onOpenMeetingPipeline={() => {
+                  setIsSidebarOpen(false);
+                  setIsMeetingPipelineOpen(true);
+                }}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Middle Column: Search + Note List Cards */}
+        {(!isMobile || mobileView === 'list') && (
+          <div
+            style={{
+              width: isMobile ? '100%' : '320px',
+              minWidth: isMobile ? '100%' : '280px',
+              borderRight: isMobile ? 'none' : '1px solid var(--border-subtle)',
+              backgroundColor: 'var(--bg-main)',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              flexShrink: 0,
+            }}
+          >
+            <SearchBar
+              filter={filter}
+              onFilterChange={handleFilterChange}
+              resultCount={matches.length}
+              durationMs={durationMs}
+            />
+
+            <NoteList
+              matches={matches}
+              selectedNoteId={selectedNoteId}
+              onSelectNote={(id) => {
+                setSelectedNoteId(id);
+                if (isMobile) setMobileView('editor');
+              }}
+              onTogglePin={handleTogglePin}
+              onClearFilters={handleClearFilters}
+              totalNotes={notes.length}
+              onCreateNote={handleCreateNote}
+            />
+          </div>
+        )}
 
         {/* Right Column: Note Editor / Preview */}
-        <div style={{ flex: 1, display: 'flex', height: '100%', overflow: 'hidden', minWidth: 0 }}>
-          {currentSelectedNote ? (
-            <NoteEditor
-              note={currentSelectedNote}
-              onUpdateNote={handleUpdateNote}
-              onDeleteNote={handleDeleteNote}
-              categories={categories}
-              onAddCategory={handleAddCategory}
-              openRecorderTrigger={openRecorderTrigger}
-              onOpenMeetingPipeline={() => setIsMeetingPipelineOpen(true)}
-            />
-          ) : (
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--text-tertiary)',
-                fontSize: '14px',
-                gap: '14px',
-                padding: '40px',
-              }}
-            >
+        {(!isMobile || mobileView === 'editor') && (
+          <div style={{ flex: 1, display: 'flex', height: '100%', overflow: 'hidden', minWidth: 0, width: isMobile ? '100%' : undefined }}>
+            {currentSelectedNote ? (
+              <NoteEditor
+                note={currentSelectedNote}
+                onUpdateNote={handleUpdateNote}
+                onDeleteNote={(id) => {
+                  handleDeleteNote(id);
+                  if (isMobile) setMobileView('list');
+                }}
+                categories={categories}
+                onAddCategory={handleAddCategory}
+                openRecorderTrigger={openRecorderTrigger}
+                onOpenMeetingPipeline={() => setIsMeetingPipelineOpen(true)}
+                onBack={isMobile ? () => setMobileView('list') : undefined}
+                isMobile={isMobile}
+              />
+            ) : (
               <div
                 style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '18px',
-                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(139, 92, 246, 0.15))',
-                  border: '1px solid rgba(6, 182, 212, 0.3)',
+                  flex: 1,
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'var(--accent-cyan)',
-                  boxShadow: '0 8px 24px rgba(6, 182, 212, 0.15)',
+                  color: 'var(--text-tertiary)',
+                  fontSize: '14px',
+                  gap: '14px',
+                  padding: '40px',
                 }}
               >
-                <Database size={32} />
-              </div>
-
-              <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'center' }}>
-                Local SQLite Database Connected
-              </div>
-
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '380px', lineHeight: '1.6' }}>
-                All mock data has been removed. Notes and voice memos are stored directly in your local ACID-compliant SQLite database (<code style={{ color: 'var(--accent-cyan)' }}>aura_notes.sqlite</code>).
-              </p>
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
-                <button onClick={handleCreateNote} className="btn btn-primary" style={{ padding: '8px 18px', gap: '6px' }}>
-                  <Plus size={15} />
-                  <span>New Note</span>
-                </button>
-                <button
-                  onClick={handleCreateVoiceNote}
-                  className="btn btn-ghost"
+                <div
                   style={{
-                    padding: '8px 18px',
-                    gap: '6px',
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '18px',
+                    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(139, 92, 246, 0.15))',
+                    border: '1px solid rgba(6, 182, 212, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     color: 'var(--accent-cyan)',
-                    backgroundColor: 'rgba(6, 182, 212, 0.1)',
-                    border: '1px solid rgba(6, 182, 212, 0.25)',
+                    boxShadow: '0 8px 24px rgba(6, 182, 212, 0.15)',
                   }}
                 >
-                  <Mic size={15} />
-                  <span>Record Voice Memo</span>
-                </button>
+                  <Database size={32} />
+                </div>
+
+                <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'center' }}>
+                  Local SQLite Database Connected
+                </div>
+
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '380px', lineHeight: '1.6' }}>
+                  All mock data has been removed. Notes and voice memos are stored directly in your local ACID-compliant SQLite database (<code style={{ color: 'var(--accent-cyan)' }}>aura_notes.sqlite</code>).
+                </p>
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
+                  <button onClick={handleCreateNote} className="btn btn-primary" style={{ padding: '8px 18px', gap: '6px' }}>
+                    <Plus size={15} />
+                    <span>New Note</span>
+                  </button>
+                  <button
+                    onClick={handleCreateVoiceNote}
+                    className="btn btn-ghost"
+                    style={{
+                      padding: '8px 18px',
+                      gap: '6px',
+                      color: 'var(--accent-cyan)',
+                      backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                      border: '1px solid rgba(6, 182, 212, 0.25)',
+                    }}
+                  >
+                    <Mic size={15} />
+                    <span>Record Voice Memo</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Meeting Notes Pipeline Modal */}

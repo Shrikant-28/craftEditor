@@ -78,6 +78,9 @@ export function normalizeLanguage(lang: string = ''): string {
     case 'go':
     case 'golang':
       return 'go';
+    case 'mermaid':
+    case 'mmd':
+      return 'mermaid';
     default:
       return l || 'plaintext';
   }
@@ -109,6 +112,8 @@ export function getLanguageMetadata(lang: string): { label: string; badgeColor: 
       return { label: 'Rust', badgeColor: '#ea580c' };
     case 'go':
       return { label: 'Go', badgeColor: '#00add8' };
+    case 'mermaid':
+      return { label: 'Mermaid', badgeColor: '#8b5cf6' };
     default:
       return { label: lang.toUpperCase() || 'CODE', badgeColor: '#64748b' };
   }
@@ -181,6 +186,8 @@ export function tokenizeCode(code: string, language: string): Token[] {
       return tokenizeBash(code);
     case 'sql':
       return tokenizeSQL(code);
+    case 'mermaid':
+      return tokenizeMermaid(code);
     default:
       return [{ type: 'plain', text: code }];
   }
@@ -683,6 +690,112 @@ function tokenizeSQL(code: string): Token[] {
 
     if ('(),;.'.includes(code[i])) {
       tokens.push({ type: 'punctuation', text: code[i] });
+      i++;
+      continue;
+    }
+
+    tokens.push({ type: 'plain', text: code[i] });
+    i++;
+  }
+
+  return tokens;
+}
+
+// Keywords & Types for Mermaid Diagrams
+const MERMAID_KEYWORDS = new Set([
+  'graph', 'flowchart', 'sequencediagram', 'classdiagram', 'statediagram', 'statediagram-v2',
+  'erdiagram', 'mindmap', 'gantt', 'pie', 'gitgraph', 'journey', 'timeline', 'quadrantchart',
+  'subgraph', 'end', 'participant', 'actor', 'activate', 'deactivate', 'loop', 'alt', 'else',
+  'opt', 'par', 'critical', 'option', 'break', 'rect', 'note', 'title', 'section', 'class',
+  'style', 'linkstyle', 'click', 'autonumber', 'dateformat', 'axisformat'
+]);
+
+const MERMAID_TYPES = new Set([
+  'td', 'tb', 'bt', 'rl', 'lr', 'branch', 'checkout', 'commit', 'merge', 'root'
+]);
+
+// Tokenizer for Mermaid Diagrams
+function tokenizeMermaid(code: string): Token[] {
+  const tokens: Token[] = [];
+  const len = code.length;
+  let i = 0;
+
+  while (i < len) {
+    // 1. Mermaid Comments: %% ...
+    if (code[i] === '%' && code[i + 1] === '%') {
+      const start = i;
+      while (i < len && code[i] !== '\n') i++;
+      tokens.push({ type: 'comment', text: code.slice(start, i) });
+      continue;
+    }
+
+    // 2. String literals: "..." or '...'
+    if (code[i] === '"' || code[i] === "'") {
+      const quote = code[i];
+      const start = i;
+      i++;
+      while (i < len && code[i] !== quote) {
+        if (code[i] === '\\') i++;
+        i++;
+      }
+      if (i < len) i++;
+      tokens.push({ type: 'string', text: code.slice(start, i) });
+      continue;
+    }
+
+    // 3. Arrow / Connectors: -->, ==>, -.->, ->>, -->>, ---, etc.
+    if (code.startsWith('-->', i) || code.startsWith('==>', i) || code.startsWith('-->>', i) || code.startsWith('-.->', i)) {
+      const length = code.startsWith('-->>', i) || code.startsWith('-.->', i) ? 4 : 3;
+      tokens.push({ type: 'operator', text: code.slice(i, i + length) });
+      i += length;
+      continue;
+    }
+    if (code.startsWith('->>', i) || code.startsWith('---', i)) {
+      tokens.push({ type: 'operator', text: code.slice(i, i + 3) });
+      i += 3;
+      continue;
+    }
+    if (code.startsWith('->', i) || code.startsWith('--', i)) {
+      tokens.push({ type: 'operator', text: code.slice(i, i + 2) });
+      i += 2;
+      continue;
+    }
+
+    // 4. Numbers
+    if (code[i] >= '0' && code[i] <= '9') {
+      const start = i;
+      while (i < len && ((code[i] >= '0' && code[i] <= '9') || code[i] === '.' || code[i] === ':')) i++;
+      tokens.push({ type: 'number', text: code.slice(start, i) });
+      continue;
+    }
+
+    // 5. Identifiers, Keywords, Shapes
+    if ((code[i] >= 'a' && code[i] <= 'z') || (code[i] >= 'A' && code[i] <= 'Z') || code[i] === '_') {
+      const start = i;
+      while (i < len && ((code[i] >= 'a' && code[i] <= 'z') || (code[i] >= 'A' && code[i] <= 'Z') || (code[i] >= '0' && code[i] <= '9') || code[i] === '_' || code[i] === '-')) i++;
+      const word = code.slice(start, i);
+      const lower = word.toLowerCase();
+
+      if (MERMAID_KEYWORDS.has(lower)) {
+        tokens.push({ type: 'keyword', text: word });
+      } else if (MERMAID_TYPES.has(lower)) {
+        tokens.push({ type: 'type', text: word });
+      } else {
+        tokens.push({ type: 'plain', text: word });
+      }
+      continue;
+    }
+
+    // 6. Delimiters & punctuation: [], (), {}, |, :, ;
+    if ('[](){}|:;,'.includes(code[i])) {
+      tokens.push({ type: 'punctuation', text: code[i] });
+      i++;
+      continue;
+    }
+
+    // 7. Operators: +, -, *, /, =
+    if ('=><!+*/'.includes(code[i])) {
+      tokens.push({ type: 'operator', text: code[i] });
       i++;
       continue;
     }

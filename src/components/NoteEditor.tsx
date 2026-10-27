@@ -24,11 +24,14 @@ import {
   Table,
   Link as LinkIcon,
   AlertCircle,
+  Workflow,
+  ChevronDown,
 } from 'lucide-react';
 import { Note, VoiceRecording } from '../types/note';
 import { VoiceRecorder } from './VoiceRecorder';
 import { VoicePlayer } from './VoicePlayer';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { MERMAID_TEMPLATES } from '../utils/mermaidTemplates';
 
 interface NoteEditorProps {
   note: Note;
@@ -78,12 +81,25 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
   const [isDictating, setIsDictating] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [dictationError, setDictationError] = useState<string | null>(null);
+  const [showMermaidMenu, setShowMermaidMenu] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const dictationRef = useRef<any>(null);
   const isDictatingRef = useRef(false);
   const exportTimerRef = useRef<number | null>(null);
+  const mermaidMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMermaidMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (mermaidMenuRef.current && !mermaidMenuRef.current.contains(e.target as Node)) {
+        setShowMermaidMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMermaidMenu]);
 
   const noteRef = useRef(note);
   useEffect(() => {
@@ -1073,6 +1089,113 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
           >
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700 }}>{'</>'}</span>
           </button>
+          {/* Mermaid Diagram Insert Menu */}
+          <div ref={mermaidMenuRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowMermaidMenu((prev) => !prev)}
+              className="btn-icon"
+              style={{
+                width: 'auto',
+                height: '26px',
+                padding: '0 6px',
+                gap: '3px',
+                color: showMermaidMenu ? 'var(--accent-violet)' : 'var(--accent-violet)',
+                backgroundColor: showMermaidMenu ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.08)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+              }}
+              title="Insert Mermaid Diagram (Flowchart, Sequence, Mindmap...)"
+              data-testid="toolbar-mermaid-btn"
+            >
+              <Workflow size={13} />
+              <ChevronDown size={10} style={{ opacity: 0.7 }} />
+            </button>
+
+            {showMermaidMenu && (
+              <div
+                data-testid="mermaid-template-menu"
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: '6px',
+                  width: '270px',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid rgba(139, 92, 246, 0.35)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)',
+                  padding: '6px',
+                  zIndex: 200,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '4px 8px 6px 8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: 'var(--text-tertiary)',
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    marginBottom: '4px',
+                  }}
+                >
+                  <span>Insert Diagram</span>
+                </div>
+                {MERMAID_TEMPLATES.map((tmpl) => (
+                  <button
+                    key={tmpl.id}
+                    onClick={() => {
+                      insertFormatting(tmpl.code, '', '');
+                      setShowMermaidMenu(false);
+                    }}
+                    data-testid={`insert-mermaid-${tmpl.id}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '6px 8px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-primary)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      transition: 'background-color 0.1s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    <span style={{ fontSize: '14px' }}>{tmpl.icon}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <span style={{ fontWeight: 500, fontSize: '12px' }}>{tmpl.name}</span>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          color: 'var(--text-tertiary)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {tmpl.description}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             onClick={() => insertFormatting('- [ ] ', '', 'Task item')}
             className="btn-icon"

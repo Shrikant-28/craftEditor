@@ -6,6 +6,7 @@ import {
   Square
 } from 'lucide-react';
 import { tokenizeCode, TOKEN_COLORS, getLanguageMetadata } from '../utils/syntaxHighlighter';
+import { MermaidPreviewer } from './MermaidPreviewer';
 
 interface MarkdownRendererProps {
   content: string;
@@ -497,8 +498,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({
       className="markdown-content"
     >
       {blocks.map((block, idx) => {
-        // --- Code Block ---
+        // --- Code Block or Mermaid Diagram Preview ---
         if (block.type === 'code') {
+          const lang = (block.language || '').toLowerCase().trim();
+          if (lang === 'mermaid' || lang === 'mmd') {
+            return <MermaidPreviewer key={idx} code={block.code || ''} />;
+          }
           return <CodeBlock key={idx} code={block.code || ''} language={block.language || 'plaintext'} />;
         }
 

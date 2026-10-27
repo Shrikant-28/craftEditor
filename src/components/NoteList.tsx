@@ -222,9 +222,25 @@ export const NoteList: React.FC<NoteListProps> = React.memo(({
                 onClick={onCreateNote}
                 className="btn btn-primary"
                 style={{ fontSize: '12px', padding: '7px 14px', gap: '6px' }}
+                title="Create Note (Ctrl+N)"
               >
                 <Plus size={14} />
                 <span>Create First Note</span>
+                <kbd
+                  style={{
+                    fontSize: '10px',
+                    padding: '1px 5px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    borderRadius: '4px',
+                    color: '#ffffff',
+                    fontFamily: 'var(--font-mono)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    fontWeight: 500,
+                    marginLeft: '2px',
+                  }}
+                >
+                  Ctrl+N
+                </kbd>
               </button>
             )}
           </>

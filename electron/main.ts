@@ -29,6 +29,7 @@ function createWindow() {
     minHeight: 640,
     frame: false, // Frameless window to use the custom Aura Notes TitleBar
     autoHideMenuBar: true,
+    alwaysOnTop: true, // Application is on top of all screen
     icon: fs.existsSync(path.join(__dirname, '../public/note.jpg'))
       ? path.join(__dirname, '../public/note.jpg')
       : path.join(__dirname, '../dist/note.jpg'),
@@ -50,6 +51,20 @@ function createWindow() {
       return;
     }
     callback(true);
+  });
+
+  // Intercept Ctrl+N / Cmd+N at window level to create new note
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (
+      (input.control || input.meta) &&
+      !input.alt &&
+      !input.shift &&
+      input.key.toLowerCase() === 'n' &&
+      input.type === 'keyDown'
+    ) {
+      event.preventDefault();
+      mainWindow?.webContents.send('shortcut:new-note');
+    }
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -125,6 +140,33 @@ function setupIpcHandlers() {
 
   ipcMain.handle('window:isMaximized', () => {
     return mainWindow?.isMaximized() ?? false;
+  });
+
+  // Always on top controls
+  ipcMain.handle('window:set-always-on-top', (_, flag: boolean) => {
+    if (mainWindow) {
+      mainWindow.setAlwaysOnTop(flag, 'floating');
+      return mainWindow.isAlwaysOnTop();
+    }
+    return false;
+  });
+
+  ipcMain.handle('window:is-always-on-top', () => {
+    return mainWindow?.isAlwaysOnTop() ?? false;
+  });
+
+  // Window Opacity controls (e.g. 0.3 to 1.0 to see background text)
+  ipcMain.handle('window:set-opacity', (_, opacity: number) => {
+    if (mainWindow) {
+      const clamped = Math.max(0.2, Math.min(1.0, opacity));
+      mainWindow.setOpacity(clamped);
+      return clamped;
+    }
+    return 1.0;
+  });
+
+  ipcMain.handle('window:get-opacity', () => {
+    return mainWindow?.getOpacity() ?? 1.0;
   });
 
   // System info

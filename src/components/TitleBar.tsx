@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Minus, Square, X, Sun, Moon, PanelLeft } from 'lucide-react';
+import { Minus, Square, X, Sun, Moon, PanelLeft, Settings, Pin } from 'lucide-react';
 
 interface TitleBarProps {
   totalNotes?: number;
@@ -8,6 +8,10 @@ interface TitleBarProps {
   isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   isMobile?: boolean;
+  onOpenSettings?: () => void;
+  isAlwaysOnTop?: boolean;
+  onToggleAlwaysOnTop?: () => void;
+  windowOpacity?: number;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
@@ -17,6 +21,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   isSidebarOpen,
   onToggleSidebar,
   isMobile,
+  onOpenSettings,
+  isAlwaysOnTop,
+  onToggleAlwaysOnTop,
+  windowOpacity,
 }) => {
   const [isElectron, setIsElectron] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -139,8 +147,29 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         </span>
       </div>
 
-      {/* Right: Theme Switcher & Window Controls */}
+      {/* Right: Quick Pin, Theme Switcher, Settings & Window Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="titlebar-no-drag">
+        {/* Quick Always On Top Pin Button */}
+        {onToggleAlwaysOnTop && (
+          <button
+            onClick={onToggleAlwaysOnTop}
+            className="btn-icon"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              color: isAlwaysOnTop ? 'var(--accent-cyan)' : 'var(--text-tertiary)',
+              backgroundColor: isAlwaysOnTop ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+              border: isAlwaysOnTop ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid transparent',
+              transition: 'all 0.18s ease',
+            }}
+            title={isAlwaysOnTop ? 'Always on Top: Active (Click to unpin)' : 'Pin window on top of all screens'}
+            aria-label="Toggle Always on Top"
+          >
+            <Pin size={14} style={{ transform: isAlwaysOnTop ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s ease' }} />
+          </button>
+        )}
+
         {/* Light or Dark Mode Switcher */}
         <div
           onClick={handleToggle}
@@ -218,6 +247,24 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             {currentTheme === 'dark' && <span>Dark</span>}
           </div>
         </div>
+
+        {/* Settings Button */}
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="btn-icon"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              color: 'var(--text-secondary)',
+            }}
+            title="Application Settings: Stacking, Opacity & Shortcuts (Ctrl+,)"
+            aria-label="Open Application Settings"
+          >
+            <Settings size={15} />
+          </button>
+        )}
 
         {/* Window Controls (Electron) */}
         {isElectron && (

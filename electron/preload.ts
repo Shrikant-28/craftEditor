@@ -32,6 +32,11 @@ export interface ElectronAPI {
   getDatabaseStats: () => Promise<DatabaseStats | null>;
   exportNote: (data: { title: string; content: string }) => Promise<{ canceled: boolean; filePath?: string; error?: string }>;
   openExternalUrl: (url: string) => Promise<boolean>;
+  onNewNote?: (callback: () => void) => () => void;
+  setAlwaysOnTop: (alwaysOnTop: boolean) => Promise<boolean>;
+  isAlwaysOnTop: () => Promise<boolean>;
+  setOpacity: (opacity: number) => Promise<number>;
+  getOpacity: () => Promise<number>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -46,6 +51,17 @@ const electronAPI: ElectronAPI = {
   getDatabaseStats: () => ipcRenderer.invoke('storage:get-db-stats'),
   exportNote: (data) => ipcRenderer.invoke('dialog:export-note', data),
   openExternalUrl: (url) => ipcRenderer.invoke('shell:open-external', url),
+  onNewNote: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('shortcut:new-note', handler);
+    return () => {
+      ipcRenderer.removeListener('shortcut:new-note', handler);
+    };
+  },
+  setAlwaysOnTop: (flag: boolean) => ipcRenderer.invoke('window:set-always-on-top', flag),
+  isAlwaysOnTop: () => ipcRenderer.invoke('window:is-always-on-top'),
+  setOpacity: (opacity: number) => ipcRenderer.invoke('window:set-opacity', opacity),
+  getOpacity: () => ipcRenderer.invoke('window:get-opacity'),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

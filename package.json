@@ -24,7 +24,9 @@
     "version:minor": "node scripts/bump-version.js minor",
     "version:major": "node scripts/bump-version.js major"
   },
-  "dependencies": {},
+  "dependencies": {
+    "mermaid": "^12.2.0"
+  },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
     "@types/node": "^22.13.4",

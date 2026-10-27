@@ -102,10 +102,27 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
         <button
           onClick={onCreateNote}
           className="btn btn-primary"
-          style={{ width: '100%', justifyContent: 'center', height: '36px' }}
+          style={{ width: '100%', justifyContent: 'space-between', height: '36px', padding: '0 12px' }}
+          title="New Note (Ctrl+N)"
         >
-          <Plus size={16} />
-          <span>New Note</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Plus size={16} />
+            <span>New Note</span>
+          </div>
+          <kbd
+            style={{
+              fontSize: '10px',
+              padding: '1px 5px',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              borderRadius: '4px',
+              color: '#ffffff',
+              fontFamily: 'var(--font-mono)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              fontWeight: 500,
+            }}
+          >
+            Ctrl+N
+          </kbd>
         </button>
 
         <button

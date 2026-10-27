@@ -80,11 +80,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
   const [dictationError, setDictationError] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const dictationRef = useRef<any>(null);
   const isDictatingRef = useRef(false);
   const exportTimerRef = useRef<number | null>(null);
 
   const noteRef = useRef(note);
+  useEffect(() => {
+    if (note.title === 'New Note') {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    }
+  }, [note.id]);
   useEffect(() => {
     noteRef.current = note;
   }, [note]);
@@ -936,6 +943,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
       {/* Title Input */}
       <div style={{ padding: '16px 24px 8px 24px' }}>
         <input
+          ref={titleInputRef}
           type="text"
           value={note.title}
           onChange={handleTitleChange}

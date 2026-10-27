@@ -30,6 +30,11 @@ export interface ElectronAPI {
   getDatabaseStats: () => Promise<DatabaseStats | null>;
   exportNote: (data: { title: string; content: string }) => Promise<{ canceled: boolean; filePath?: string; error?: string }>;
   openExternalUrl: (url: string) => Promise<boolean>;
+  onNewNote?: (callback: () => void) => () => void;
+  setAlwaysOnTop?: (alwaysOnTop: boolean) => Promise<boolean>;
+  isAlwaysOnTop?: () => Promise<boolean>;
+  setOpacity?: (opacity: number) => Promise<number>;
+  getOpacity?: () => Promise<number>;
 }
 
 declare global {

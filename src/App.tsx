@@ -5,6 +5,7 @@ import { SearchBar } from './components/SearchBar';
 import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
 import { MeetingPipelineModal } from './components/MeetingPipelineModal';
+import { SettingsModal } from './components/SettingsModal';
 import { Note, SearchFilter } from './types/note';
 import { executeSearch } from './utils/searchEngine';
 import { Database, Plus, Mic } from 'lucide-react';
@@ -14,6 +15,27 @@ export const App: React.FC = () => {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [filter, setFilter] = useState<SearchFilter>({ query: '' });
   const [isDiskSynced, setIsDiskSynced] = useState<boolean>(true);
+
+  // Settings & Window Display State (Always-on-top & Opacity)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('aura_notes_always_on_top');
+      if (saved !== null) return saved === 'true';
+    } catch {}
+    return true; // Default to on top of all screens
+  });
+
+  const [windowOpacity, setWindowOpacity] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('aura_notes_window_opacity');
+      if (saved) {
+        const val = parseFloat(saved);
+        if (!isNaN(val) && val >= 0.2 && val <= 1.0) return val;
+      }
+    } catch {}
+    return 0.92; // Default slight translucency so background text is visible when stacked
+  });
 
   // Theme state (dark / light mode)
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -205,11 +227,18 @@ export const App: React.FC = () => {
     setFilter((prev) => ({ ...prev, ...update }));
   }, []);
 
+  const lastCreatedRef = useRef(0);
   const handleCreateNote = useCallback(() => {
+    const now = Date.now();
+    if (now - lastCreatedRef.current < 200) {
+      return;
+    }
+    lastCreatedRef.current = now;
+
     const newNote: Note = {
-      id: `note-${Date.now()}`,
-      title: 'New Note',
-      content: '# New Note\n\nStart typing your note here...',
+      id: `note-${now}`,
+      title: '',
+      content: '',
       category: categories[0] || 'General',
       tags: [],
       isPinned: false,
@@ -218,7 +247,75 @@ export const App: React.FC = () => {
     };
     setNotes((prev) => [newNote, ...prev]);
     setSelectedNoteId(newNote.id);
-  }, [categories]);
+    if (isMobile) {
+      setMobileView('editor');
+    }
+  }, [categories, isMobile]);
+
+  const handleToggleAlwaysOnTop = useCallback(async (forcedValue?: boolean) => {
+    const next = typeof forcedValue === 'boolean' ? forcedValue : !isAlwaysOnTop;
+    setIsAlwaysOnTop(next);
+    try {
+      localStorage.setItem('aura_notes_always_on_top', String(next));
+    } catch {}
+    if (window.electronAPI?.setAlwaysOnTop) {
+      await window.electronAPI.setAlwaysOnTop(next);
+    }
+  }, [isAlwaysOnTop]);
+
+  const handleChangeOpacity = useCallback(async (newOpacity: number) => {
+    const clamped = Math.max(0.3, Math.min(1.0, newOpacity));
+    setWindowOpacity(clamped);
+    try {
+      localStorage.setItem('aura_notes_window_opacity', String(clamped));
+    } catch {}
+    if (window.electronAPI?.setOpacity) {
+      await window.electronAPI.setOpacity(clamped);
+    }
+  }, []);
+
+  // Sync initial always-on-top and opacity settings to Electron window
+  useEffect(() => {
+    if (window.electronAPI) {
+      if (window.electronAPI.setAlwaysOnTop) {
+        window.electronAPI.setAlwaysOnTop(isAlwaysOnTop);
+      }
+      if (window.electronAPI.setOpacity) {
+        window.electronAPI.setOpacity(windowOpacity);
+      }
+    }
+  }, []);
+
+  // Global keyboard shortcuts: Ctrl+N (New Note) and Ctrl+, (Settings)
+  useEffect(() => {
+    // 1. Electron IPC shortcut listener
+    let cleanupElectron: (() => void) | undefined;
+    if (window.electronAPI?.onNewNote) {
+      cleanupElectron = window.electronAPI.onNewNote(() => {
+        handleCreateNote();
+      });
+    }
+
+    // 2. DOM keyboard shortcuts for web / browser preview or fallback
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+N or Cmd+N for New Note
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        handleCreateNote();
+      }
+      // Ctrl+, or Cmd+, for Application Settings
+      else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        setIsSettingsOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      cleanupElectron?.();
+    };
+  }, [handleCreateNote]);
 
   const handleCreateVoiceNote = useCallback(() => {
     const formattedDate = new Date().toLocaleDateString(undefined, {
@@ -281,7 +378,17 @@ export const App: React.FC = () => {
   }, [notes, selectedNoteId]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        opacity: windowOpacity,
+        transition: 'opacity 0.15s ease',
+      }}
+    >
       {/* 1. Desktop Window TitleBar */}
       <TitleBar
         totalNotes={notes.length}
@@ -290,6 +397,10 @@ export const App: React.FC = () => {
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={handleToggleSidebar}
         isMobile={isMobile}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        isAlwaysOnTop={isAlwaysOnTop}
+        onToggleAlwaysOnTop={() => handleToggleAlwaysOnTop()}
+        windowOpacity={windowOpacity}
       />
 
       {/* 2. Main Workspace Body */}
@@ -435,9 +546,29 @@ export const App: React.FC = () => {
                 </p>
 
                 <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
-                  <button onClick={handleCreateNote} className="btn btn-primary" style={{ padding: '8px 18px', gap: '6px' }}>
+                  <button
+                    onClick={handleCreateNote}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 18px', gap: '8px' }}
+                    title="New Note (Ctrl+N)"
+                  >
                     <Plus size={15} />
                     <span>New Note</span>
+                    <kbd
+                      style={{
+                        fontSize: '10px',
+                        padding: '1px 5px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        borderRadius: '4px',
+                        color: '#ffffff',
+                        fontFamily: 'var(--font-mono)',
+                        border: '1px solid rgba(255, 255, 255, 0.25)',
+                        fontWeight: 500,
+                        marginLeft: '2px',
+                      }}
+                    >
+                      Ctrl+N
+                    </kbd>
                   </button>
                   <button
                     onClick={handleCreateVoiceNote}
@@ -467,6 +598,18 @@ export const App: React.FC = () => {
         currentNote={currentSelectedNote}
         onInsertMarkdown={handleInsertMeetingMarkdown}
         onCreateNewMeetingNote={handleCreateMeetingNote}
+      />
+
+      {/* Application Settings Modal (Always-on-Top & Window Opacity) */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        isAlwaysOnTop={isAlwaysOnTop}
+        onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
+        windowOpacity={windowOpacity}
+        onChangeOpacity={handleChangeOpacity}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
     </div>
   );

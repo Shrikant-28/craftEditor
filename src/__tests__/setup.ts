@@ -51,3 +51,28 @@ class MockAudioContext {
 
 (window as any).AudioContext = MockAudioContext;
 (window as any).webkitAudioContext = MockAudioContext;
+
+// Mock mermaid for JSDOM testing
+vi.mock('mermaid', () => {
+  return {
+    default: {
+      initialize: vi.fn(),
+      render: vi.fn(async (id: string, code: string) => {
+        if (code.includes('syntax_error_mock_trigger')) {
+          throw new Error('Parse error on line 1: Syntax error in diagram');
+        }
+        return {
+          svg: `<svg id="${id}" data-testid="mermaid-svg" viewBox="0 0 500 200"><g><text>Mock Mermaid Diagram: ${code.slice(0, 25).trim()}</text></g></svg>`,
+          bindFunctions: vi.fn(),
+        };
+      }),
+      parse: vi.fn(async (code: string) => {
+        if (code.includes('syntax_error_mock_trigger')) {
+          throw new Error('Parse error');
+        }
+        return true;
+      }),
+    },
+  };
+});
+

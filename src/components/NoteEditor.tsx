@@ -1146,7 +1146,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = React.memo(({
                   }}
                 >
                   <span>Insert Diagram</span>
-                  <span style={{ fontSize: '10px', color: 'var(--accent-violet)' }}>Mermaid.js</span>
                 </div>
                 {MERMAID_TEMPLATES.map((tmpl) => (
                   <button

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Minus, Square, X, Sun, Moon, PanelLeft, Settings, Pin } from 'lucide-react';
+import { Minus, Square, X, Sun, Moon, PanelLeft, Settings, Pin, Shield } from 'lucide-react';
 
 interface TitleBarProps {
   totalNotes?: number;
@@ -12,6 +12,8 @@ interface TitleBarProps {
   isAlwaysOnTop?: boolean;
   onToggleAlwaysOnTop?: () => void;
   windowOpacity?: number;
+  isContentProtectionActive?: boolean;
+  onOpenScreenProtectionSettings?: () => void;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
@@ -25,6 +27,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   isAlwaysOnTop,
   onToggleAlwaysOnTop,
   windowOpacity,
+  isContentProtectionActive,
+  onOpenScreenProtectionSettings,
 }) => {
   const [isElectron, setIsElectron] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -167,6 +171,31 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             aria-label="Toggle Always on Top"
           >
             <Pin size={14} style={{ transform: isAlwaysOnTop ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s ease' }} />
+          </button>
+        )}
+
+        {/* Quick Screen Protection Shield Button */}
+        {onOpenScreenProtectionSettings && (
+          <button
+            onClick={onOpenScreenProtectionSettings}
+            className="btn-icon"
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              color: isContentProtectionActive ? 'var(--accent-emerald, #10b981)' : 'var(--text-tertiary)',
+              backgroundColor: isContentProtectionActive ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+              border: isContentProtectionActive ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid transparent',
+              transition: 'all 0.18s ease',
+            }}
+            title={
+              isContentProtectionActive
+                ? 'Screen Protection Active: Hidden in Zoom, Teams, Zoho screen shares (Click to configure)'
+                : 'Screen Protection Inactive: Visible in screen shares (Click to configure)'
+            }
+            aria-label="Screen Share Privacy Shield"
+          >
+            <Shield size={14} />
           </button>
         )}
 

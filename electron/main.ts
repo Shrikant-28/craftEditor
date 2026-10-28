@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { execFile } from 'child_process';
 import {
   initDatabase,
   loadAllNotes,
@@ -15,6 +16,7 @@ app.commandLine.appendSwitch('disable-site-isolation-trials');
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256');
 
 let mainWindow: BrowserWindow | null = null;
+let isContentProtected = false;
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -68,6 +70,9 @@ function createWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed() && isContentProtected) {
+      mainWindow.setContentProtection(true);
+    }
     mainWindow?.show();
   });
 
@@ -167,6 +172,57 @@ function setupIpcHandlers() {
 
   ipcMain.handle('window:get-opacity', () => {
     return mainWindow?.getOpacity() ?? 1.0;
+  });
+
+  // Screen protection / exclude from screen sharing (setContentProtection)
+  ipcMain.handle('window:set-content-protection', (_, enable: boolean) => {
+    const target = Boolean(enable);
+    isContentProtected = target;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.setContentProtection(target);
+        return { success: true, isProtected: isContentProtected };
+      } catch (err) {
+        console.error('Failed to setContentProtection:', err);
+        return { success: false, isProtected: isContentProtected, error: String(err) };
+      }
+    }
+    return { success: true, isProtected: isContentProtected };
+  });
+
+  ipcMain.handle('window:get-content-protection', () => {
+    return isContentProtected;
+  });
+
+  // Query running processes to detect active meeting apps (Zoom, Teams, Zoho Meeting, etc.)
+  ipcMain.handle('system:get-running-processes', async () => {
+    return new Promise<string[]>((resolve) => {
+      try {
+        if (process.platform === 'win32') {
+          execFile('tasklist', ['/fo', 'csv', '/nh'], { windowsHide: true }, (err, stdout) => {
+            if (err || !stdout) return resolve([]);
+            const lines = stdout.split(/\r?\n/);
+            const processes = new Set<string>();
+            for (const line of lines) {
+              const match = line.match(/^"([^"]+)"/);
+              if (match && match[1]) {
+                processes.add(match[1].toLowerCase().trim());
+              }
+            }
+            resolve(Array.from(processes));
+          });
+        } else {
+          execFile('ps', ['-e', '-o', 'comm='], (err, stdout) => {
+            if (err || !stdout) return resolve([]);
+            const lines = stdout.split(/\r?\n/).map(s => s.trim().toLowerCase()).filter(Boolean);
+            resolve(Array.from(new Set(lines)));
+          });
+        }
+      } catch (err) {
+        console.error('Failed to query running processes:', err);
+        resolve([]);
+      }
+    });
   });
 
   // System info

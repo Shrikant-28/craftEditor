@@ -37,6 +37,9 @@ export interface ElectronAPI {
   isAlwaysOnTop: () => Promise<boolean>;
   setOpacity: (opacity: number) => Promise<number>;
   getOpacity: () => Promise<number>;
+  setContentProtection: (enable: boolean) => Promise<{ success: boolean; isProtected: boolean; error?: string }>;
+  getContentProtection: () => Promise<boolean>;
+  getRunningProcesses: () => Promise<string[]>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -62,6 +65,9 @@ const electronAPI: ElectronAPI = {
   isAlwaysOnTop: () => ipcRenderer.invoke('window:is-always-on-top'),
   setOpacity: (opacity: number) => ipcRenderer.invoke('window:set-opacity', opacity),
   getOpacity: () => ipcRenderer.invoke('window:get-opacity'),
+  setContentProtection: (enable: boolean) => ipcRenderer.invoke('window:set-content-protection', enable),
+  getContentProtection: () => ipcRenderer.invoke('window:get-content-protection'),
+  getRunningProcesses: () => ipcRenderer.invoke('system:get-running-processes'),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

@@ -7,6 +7,10 @@ import { NoteEditor } from './components/NoteEditor';
 import { MeetingPipelineModal } from './components/MeetingPipelineModal';
 import { SettingsModal } from './components/SettingsModal';
 import { Note, SearchFilter } from './types/note';
+import {
+  ScreenProtectionSettings,
+  DEFAULT_SCREEN_PROTECTION_SETTINGS,
+} from './types/screenProtection';
 import { executeSearch } from './utils/searchEngine';
 import { Database, Plus, Mic } from 'lucide-react';
 
@@ -16,8 +20,31 @@ export const App: React.FC = () => {
   const [filter, setFilter] = useState<SearchFilter>({ query: '' });
   const [isDiskSynced, setIsDiskSynced] = useState<boolean>(true);
 
-  // Settings & Window Display State (Always-on-top & Opacity)
+  // Settings & Window Display State (Always-on-top, Opacity & Screen Share Privacy)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'general' | 'privacy'>('general');
+
+  // Screen Share Privacy & App Exclusion Settings (setContentProtection)
+  const [screenProtection, setScreenProtection] = useState<ScreenProtectionSettings>(() => {
+    try {
+      const saved = localStorage.getItem('aura_notes_screen_protection');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.enabled === 'boolean') {
+          return {
+            ...DEFAULT_SCREEN_PROTECTION_SETTINGS,
+            ...parsed,
+            apps: Array.isArray(parsed.apps) && parsed.apps.length > 0 ? parsed.apps : DEFAULT_SCREEN_PROTECTION_SETTINGS.apps,
+          };
+        }
+      }
+    } catch {}
+    return DEFAULT_SCREEN_PROTECTION_SETTINGS;
+  });
+
+  const [runningProcesses, setRunningProcesses] = useState<string[]>([]);
+  const [isContentProtectionActive, setIsContentProtectionActive] = useState<boolean>(false);
+
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('aura_notes_always_on_top');
@@ -274,7 +301,7 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Sync initial always-on-top and opacity settings to Electron window
+  // Sync initial always-on-top, opacity, and screen protection settings to Electron window
   useEffect(() => {
     if (window.electronAPI) {
       if (window.electronAPI.setAlwaysOnTop) {
@@ -284,6 +311,80 @@ export const App: React.FC = () => {
         window.electronAPI.setOpacity(windowOpacity);
       }
     }
+  }, []);
+
+  // Screen Protection: Query running processes
+  const refreshRunningProcesses = useCallback(async () => {
+    if (window.electronAPI?.getRunningProcesses) {
+      try {
+        const procs = await window.electronAPI.getRunningProcesses();
+        if (Array.isArray(procs)) {
+          setRunningProcesses(procs);
+          return procs;
+        }
+      } catch (err) {
+        console.error('Failed to get running processes:', err);
+      }
+    }
+    return [];
+  }, []);
+
+  // Compute whether screen protection should be active
+  const computeProtectionActive = useCallback(
+    (settings: ScreenProtectionSettings, procs: string[]): boolean => {
+      if (!settings.enabled) return false;
+      if (settings.mode === 'always') return true;
+      if (settings.mode === 'smart') {
+        const procsLower = procs.map((p) => p.toLowerCase());
+        return settings.apps.some(
+          (app) =>
+            app.enabled &&
+            app.processNames.some((pName) => procsLower.includes(pName.toLowerCase()))
+        );
+      }
+      return false;
+    },
+    []
+  );
+
+  // Sync screen protection state to Electron window (setContentProtection)
+  useEffect(() => {
+    const shouldProtect = computeProtectionActive(screenProtection, runningProcesses);
+    setIsContentProtectionActive(shouldProtect);
+    if (window.electronAPI?.setContentProtection) {
+      window.electronAPI.setContentProtection(shouldProtect).catch(() => {});
+    }
+  }, [screenProtection, runningProcesses, computeProtectionActive]);
+
+  // Periodic process scanning when in smart mode or when settings modal is open
+  useEffect(() => {
+    refreshRunningProcesses();
+
+    const timer = setInterval(() => {
+      if (screenProtection.enabled && (screenProtection.mode === 'smart' || isSettingsOpen)) {
+        refreshRunningProcesses();
+      }
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [screenProtection.enabled, screenProtection.mode, isSettingsOpen, refreshRunningProcesses]);
+
+  const handleUpdateScreenProtection = useCallback((nextSettings: ScreenProtectionSettings) => {
+    setScreenProtection(nextSettings);
+    try {
+      localStorage.setItem('aura_notes_screen_protection', JSON.stringify(nextSettings));
+    } catch {}
+  }, []);
+
+  const handleOpenPrivacySettings = useCallback(() => {
+    setSettingsInitialTab('privacy');
+    setIsSettingsOpen(true);
+    refreshRunningProcesses();
+  }, [refreshRunningProcesses]);
+
+  const handleOpenGeneralSettings = useCallback(() => {
+    setSettingsInitialTab('general');
+    setIsSettingsOpen(true);
   }, []);
 
   // Global keyboard shortcuts: Ctrl+N (New Note) and Ctrl+, (Settings)
@@ -397,10 +498,12 @@ export const App: React.FC = () => {
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={handleToggleSidebar}
         isMobile={isMobile}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={handleOpenGeneralSettings}
         isAlwaysOnTop={isAlwaysOnTop}
         onToggleAlwaysOnTop={() => handleToggleAlwaysOnTop()}
         windowOpacity={windowOpacity}
+        isContentProtectionActive={isContentProtectionActive}
+        onOpenScreenProtectionSettings={handleOpenPrivacySettings}
       />
 
       {/* 2. Main Workspace Body */}
@@ -600,7 +703,7 @@ export const App: React.FC = () => {
         onCreateNewMeetingNote={handleCreateMeetingNote}
       />
 
-      {/* Application Settings Modal (Always-on-Top & Window Opacity) */}
+      {/* Application Settings Modal (Always-on-Top, Window Opacity & Screen Share Privacy) */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
@@ -610,6 +713,12 @@ export const App: React.FC = () => {
         onChangeOpacity={handleChangeOpacity}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        screenProtection={screenProtection}
+        onUpdateScreenProtection={handleUpdateScreenProtection}
+        isContentProtectionActive={isContentProtectionActive}
+        runningProcesses={runningProcesses}
+        onRefreshProcesses={refreshRunningProcesses}
+        initialTab={settingsInitialTab}
       />
     </div>
   );

@@ -35,6 +35,9 @@ export interface ElectronAPI {
   isAlwaysOnTop?: () => Promise<boolean>;
   setOpacity?: (opacity: number) => Promise<number>;
   getOpacity?: () => Promise<number>;
+  setContentProtection?: (enable: boolean) => Promise<{ success: boolean; isProtected: boolean; error?: string }>;
+  getContentProtection?: () => Promise<boolean>;
+  getRunningProcesses?: () => Promise<string[]>;
 }
 
 declare global {
